@@ -7,8 +7,8 @@ A comprehensive backend API for managing employee attendance, leave requests, de
 1. **Clone and Install**
 
    ```
-   git clone <repository-url>
-   cd attendance-system-backend
+   git clone https://github.com/wasifbiswas/TestAttendanceSystem2
+   cd TestAttendanceSystem2
    npm install
    ```
 
