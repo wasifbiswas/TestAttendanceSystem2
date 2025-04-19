@@ -30,7 +30,15 @@ A comprehensive backend API for managing employee attendance, leave requests, de
    npm run setup   # Initializes roles and leave types
    ```
 
-4. **Start the Server**
+4. **Create an Admin User**
+
+   First register a user through the API, then make them an admin using:
+
+   ```
+   node src/utils/makeAdmin.js <username>
+   ```
+
+5. **Start the Server**
    ```
    npm run dev     # Development mode
    npm start       # Production mode
