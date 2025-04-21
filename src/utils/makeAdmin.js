@@ -58,8 +58,8 @@ const makeUserAdmin = async (username) => {
   }
 };
 
-// Get username from command line argument
-const username = process.argv[2];
+// Get username from command line argument or use default
+const username = process.argv[2] || "admin";
 
 if (!username) {
   console.error("Please provide a username");

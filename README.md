@@ -38,6 +38,8 @@ A comprehensive backend API for managing employee attendance, leave requests, de
    node src/utils/makeAdmin.js <username>
    ```
 
+   If no username is provided, it will default to 'admin'.
+
 5. **Start the Server**
    ```
    npm run dev     # Development mode
