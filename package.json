@@ -1,38 +1,21 @@
 {
-  "name": "attendance-system-backend",
+  "name": "attendance-system",
   "version": "1.0.0",
-  "main": "src/server.js",
-  "type": "module",
+  "description": "Full-stack Attendance Management System",
+  "private": true,
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "start:dev": "nodemon index.js",
-    "setup": "node scripts/setup.js",
-    "seed:roles": "node scripts/initDb.js",
-    "seed:leaves": "node scripts/addLeaveTypes.js",
-    "test": "node tests/test.js",
-    "test:leaves": "node tests/testLeaves.js"
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run preview",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "setup": "cd backend && npm run setup",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "Employee Attendance System Backend",
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "colors": "^1.4.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "express-async-handler": "^1.2.0",
-    "jsonwebtoken": "^9.0.2",
-    "moment": "^2.30.1",
-    "mongoose": "^8.13.0",
-    "morgan": "^1.10.0",
-    "node-fetch": "^3.3.2",
-    "validator": "^13.11.0",
-    "zod": "^3.22.4"
+    "concurrently": "^8.2.2"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
-}
+  "devDependencies": {}
+} 
