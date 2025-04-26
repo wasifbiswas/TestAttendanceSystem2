@@ -16,8 +16,8 @@ dotenv.config({ path: path.join(rootDir, ".env") });
 // Connect to the database
 connectDB();
 
-// Define the port - use 5002 instead of 5001 to avoid conflict
-const PORT = process.env.PORT || 5002;
+// Define the port - use 5003 instead of 5002 to avoid conflict
+const PORT = process.env.PORT || 5003;
 
 // Start the server
 const server = app.listen(PORT, () => {

@@ -12,8 +12,12 @@ dotenv.config();
 const connectDB = async () => {
   try {
     console.log("Connecting to MongoDB...");
-    console.log(`MONGO_URI: ${process.env.MONGO_URI}`);
-    const conn = await mongoose.connect(process.env.MONGO_URI);
+    // Use hardcoded URI if environment variable is not available
+    const uri =
+      process.env.MONGO_URI ||
+      "mongodb+srv://wasif:XxnpBQREVtaJ61mb@cluster0.kvxrr.mongodb.net/Test_attendance_system";
+    console.log(`MONGO_URI: ${uri}`);
+    const conn = await mongoose.connect(uri);
     console.log(`MongoDB Connected: ${conn.connection.host}`.green);
     return true;
   } catch (error) {

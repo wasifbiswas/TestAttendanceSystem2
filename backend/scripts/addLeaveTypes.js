@@ -1,10 +1,28 @@
 import dotenv from "dotenv";
 import colors from "colors";
-import connectDB from "../src/config/database.js";
+import mongoose from "mongoose";
 import LeaveType from "../src/models/LeaveType.js";
 
 // Load environment variables
 dotenv.config();
+
+// Connect to the database directly
+const connectDB = async () => {
+  try {
+    console.log("Connecting to MongoDB...");
+    // Use hardcoded URI if environment variable is not available
+    const uri =
+      process.env.MONGO_URI ||
+      "mongodb+srv://wasif:XxnpBQREVtaJ61mb@cluster0.kvxrr.mongodb.net/Test_attendance_system";
+    console.log(`MONGO_URI: ${uri}`);
+    const conn = await mongoose.connect(uri);
+    console.log(`MongoDB Connected: ${conn.connection.host}`.green);
+    return conn;
+  } catch (error) {
+    console.error(`Error connecting to MongoDB: ${error.message}`.red);
+    process.exit(1);
+  }
+};
 
 // Connect to the database
 connectDB();

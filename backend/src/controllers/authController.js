@@ -9,60 +9,89 @@ import AppError from "../utils/errorHandler.js";
 // @route   POST /api/auth/register
 // @access  Public
 export const registerUser = asyncHandler(async (req, res) => {
-  const { username, email, password, full_name, contact_number, department } =
-    req.body;
-
-  // Log department for future use but don't save it yet as it's not in the schema
-  if (department) {
+  try {
     console.log(
-      `User ${username} is registering with department: ${department}`
+      "Registration request received:",
+      JSON.stringify(req.body, null, 2)
     );
-  }
 
-  // Check if user already exists
-  const userExists = await User.findOne({ $or: [{ email }, { username }] });
-  if (userExists) {
-    const message = "User already exists";
-    res.status(400).json({
-      status: "fail",
-      message,
-    });
-    return; // Early return to prevent further execution
-  }
+    const { username, email, password, full_name, contact_number, department } =
+      req.body;
 
-  // Create new user
-  const user = await User.create({
-    username,
-    email,
-    password_hash: password,
-    full_name,
-    contact_number,
-    department,
-    join_date: new Date(),
-    is_active: true,
-  });
+    // Log request info for debugging
+    console.log(`Attempting to register user: ${username}, email: ${email}`);
 
-  if (user) {
-    // Assign default EMPLOYEE role to new user
-    const employeeRole = await Role.findOne({ role_name: "EMPLOYEE" });
-    if (employeeRole) {
-      await UserRole.create({
-        user_id: user._id,
-        role_id: employeeRole._id,
-        assigned_date: new Date(),
-      });
+    if (department) {
+      console.log(
+        `User ${username} is registering with department: ${department}`
+      );
     }
 
-    res.status(201).json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      full_name: user.full_name,
-      token: generateToken(user._id),
+    // Check if user already exists
+    const userExists = await User.findOne({ $or: [{ email }, { username }] });
+    if (userExists) {
+      console.log(`User already exists: ${username} or ${email}`);
+      const message = "User already exists";
+      res.status(400).json({
+        status: "fail",
+        message,
+      });
+      return; // Early return to prevent further execution
+    }
+
+    // Create new user - explicitly setting password_hash
+    const userData = {
+      username,
+      email,
+      password_hash: password, // Model middleware will hash this
+      full_name,
+      contact_number,
+      department,
+      join_date: new Date(),
+      is_active: true,
+    };
+
+    console.log(
+      "Creating new user with data:",
+      JSON.stringify(userData, null, 2)
+    );
+
+    const user = await User.create(userData);
+
+    if (user) {
+      console.log(`User created successfully: ${user._id}`);
+
+      // Assign default EMPLOYEE role to new user
+      const employeeRole = await Role.findOne({ role_name: "EMPLOYEE" });
+      if (employeeRole) {
+        await UserRole.create({
+          user_id: user._id,
+          role_id: employeeRole._id,
+          assigned_date: new Date(),
+        });
+        console.log(`Assigned EMPLOYEE role to user: ${user.username}`);
+      } else {
+        console.log("Warning: EMPLOYEE role not found");
+      }
+
+      res.status(201).json({
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        full_name: user.full_name,
+        token: generateToken(user._id),
+      });
+    } else {
+      console.log("User creation failed with no specific error");
+      res.status(400);
+      throw new AppError("Invalid user data", 400);
+    }
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Registration failed: " + (error.message || "Unknown error"),
     });
-  } else {
-    res.status(400);
-    throw new AppError("Invalid user data", 400);
   }
 });
 

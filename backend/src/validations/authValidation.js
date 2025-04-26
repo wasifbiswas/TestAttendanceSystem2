@@ -3,26 +3,26 @@ import { z } from "zod";
 
 // User registration validation
 export const registerSchema = z.object({
-  name: z
+  username: z
     .string()
-    .min(3, { message: "Name must be at least 3 characters long" })
-    .max(50, { message: "Name cannot exceed 50 characters" }),
+    .min(3, { message: "Username must be at least 3 characters long" })
+    .max(50, { message: "Username cannot exceed 50 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z
     .string()
     .min(6, { message: "Password must be at least 6 characters long" }),
-  employeeId: z
+  confirm_password: z.string().optional(),
+  full_name: z
     .string()
-    .regex(/^[a-zA-Z0-9]+$/, {
-      message: "Employee ID must contain only letters and numbers",
-    }),
-  department: z.string().min(1, { message: "Department is required" }),
-  role: z.string().min(1, { message: "Role is required" }),
+    .min(3, { message: "Full name must be at least 3 characters long" })
+    .max(100, { message: "Full name cannot exceed 100 characters" }),
+  contact_number: z.string().optional(),
+  department: z.string().optional(),
 });
 
 // User login validation
 export const loginSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
+  username: z.string().min(1, { message: "Username is required" }),
   password: z.string().min(1, { message: "Password is required" }),
 });
 

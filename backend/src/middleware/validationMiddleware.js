@@ -3,17 +3,15 @@ import { ZodError } from "zod";
 // Middleware to validate request body against a Zod schema
 export const validate = (schema) => (req, res, next) => {
   try {
-    // Parse and validate the request body against the schema
-    const validated = schema.parse(req.body);
-
-    // Replace the request body with the validated data
-    req.body = validated;
-
+    console.log("Validating request data:", JSON.stringify(req.body, null, 2));
+    schema.parse(req.body);
+    console.log("Validation successful");
     next();
   } catch (error) {
     if (error instanceof ZodError) {
+      console.error("Validation error:", error.errors);
       return res.status(400).json({
-        status: "error",
+        status: "fail",
         message: "Validation failed",
         errors: error.errors.map((err) => ({
           path: err.path.join("."),
@@ -21,9 +19,11 @@ export const validate = (schema) => (req, res, next) => {
         })),
       });
     }
-
-    // If it's not a validation error, pass it to the error handler
-    next(error);
+    console.error("Unexpected validation error:", error);
+    res.status(500).json({
+      status: "error",
+      message: "An unexpected error occurred during validation",
+    });
   }
 };
 
