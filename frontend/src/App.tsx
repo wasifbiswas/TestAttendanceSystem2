@@ -6,6 +6,10 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
+import EmployeeManagement from './pages/EmployeeManagement';
+import ReportsPage from './pages/ReportsPage';
+import SystemSettings from './pages/SystemSettings';
+import HolidayManagement from './pages/HolidayManagement';
 import RoleDebugger from './components/RoleDebugger';
 
 // Protected route component
@@ -84,6 +88,30 @@ function App() {
         <Route path="/admin/users" element={
           <AdminRoute>
             <UserManagement />
+          </AdminRoute>
+        } />
+
+        <Route path="/admin/employees" element={
+          <AdminRoute>
+            <EmployeeManagement />
+          </AdminRoute>
+        } />
+
+        <Route path="/admin/reports" element={
+          <AdminRoute>
+            <ReportsPage />
+          </AdminRoute>
+        } />
+
+        <Route path="/admin/settings" element={
+          <AdminRoute>
+            <SystemSettings />
+          </AdminRoute>
+        } />
+
+        <Route path="/admin/holidays" element={
+          <AdminRoute>
+            <HolidayManagement />
           </AdminRoute>
         } />
 

@@ -1,5 +1,97 @@
 import api from './axios';
 import { AdminStats, LeaveRequest, User } from '../types';
+import { useState } from 'react';
+
+// Add the useAdminAPI hook
+export const useAdminAPI = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const getAdminStats = async (): Promise<AdminStats | null> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/admin/stats');
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch admin stats';
+      setError(errorMessage);
+      setIsLoading(false);
+      return null;
+    }
+  };
+
+  const getEmployees = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/admin/employees');
+      setIsLoading(false);
+      return response;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch employees';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const createEmployee = async (employeeData: any) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.post('/admin/employees', employeeData);
+      setIsLoading(false);
+      return response;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to create employee';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const updateEmployee = async (id: string, employeeData: any) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.put(`/admin/employees/${id}`, employeeData);
+      setIsLoading(false);
+      return response;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to update employee';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const deleteEmployee = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.delete(`/admin/employees/${id}`);
+      setIsLoading(false);
+      return response;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to delete employee';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  return {
+    isLoading,
+    error,
+    getAdminStats,
+    getEmployees,
+    createEmployee,
+    updateEmployee,
+    deleteEmployee
+  };
+};
 
 /**
  * Get admin dashboard statistics

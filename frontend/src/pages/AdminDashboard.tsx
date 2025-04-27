@@ -9,8 +9,11 @@ import {
   getPendingLeaveRequests, 
   approveLeaveRequest, 
   denyLeaveRequest,
-  getDepartmentStats
+  getDepartmentStats,
+  useAdminAPI
 } from '../api/admin';
+import { BiLoaderAlt } from 'react-icons/bi';
+import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers } from 'react-icons/fa';
 
 // Removed mock admin data
 
@@ -26,6 +29,7 @@ const AdminDashboard = () => {
     message: '', 
     type: 'info' as 'success' | 'error' | 'info' 
   });
+  const { getAdminStats: useAdminStats } = useAdminAPI();
 
   useEffect(() => {
     // Check if user is admin, redirect to regular dashboard if not
@@ -42,7 +46,7 @@ const AdminDashboard = () => {
 
   const fetchAdminStats = async () => {
     try {
-      const data = await getAdminStats();
+      const data = await useAdminStats();
       setStats(data);
     } catch (error) {
       console.error('Error fetching admin stats:', error);
@@ -137,6 +141,45 @@ const AdminDashboard = () => {
         duration: 0.5,
       },
     }),
+  };
+
+  // Admin action buttons section
+  const renderAdminActions = () => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <button
+          onClick={() => navigate('/admin/employees')}
+          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
+        >
+          <FaUserPlus className="text-3xl text-blue-500 mb-2" />
+          <span className="font-medium">Add Employee</span>
+        </button>
+        
+        <button
+          onClick={() => navigate('/admin/reports')}
+          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
+        >
+          <FaChartBar className="text-3xl text-green-500 mb-2" />
+          <span className="font-medium">Generate Reports</span>
+        </button>
+        
+        <button
+          onClick={() => navigate('/admin/settings')}
+          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
+        >
+          <FaCog className="text-3xl text-purple-500 mb-2" />
+          <span className="font-medium">System Settings</span>
+        </button>
+        
+        <button
+          onClick={() => navigate('/admin/holidays')}
+          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
+        >
+          <FaCalendarAlt className="text-3xl text-orange-500 mb-2" />
+          <span className="font-medium">Manage Holidays</span>
+        </button>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -377,33 +420,7 @@ const AdminDashboard = () => {
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">Admin Actions</h3>
         </div>
         <div className="p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button className="flex items-center justify-center p-4 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium hover:bg-indigo-200 dark:hover:bg-indigo-800/30 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-              Add Employee
-            </button>
-            <button className="flex items-center justify-center p-4 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium hover:bg-blue-200 dark:hover:bg-blue-800/30 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Generate Reports
-            </button>
-            <button className="flex items-center justify-center p-4 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium hover:bg-purple-200 dark:hover:bg-purple-800/30 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              System Settings
-            </button>
-            <button className="flex items-center justify-center p-4 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium hover:bg-green-200 dark:hover:bg-green-800/30 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Manage Holidays
-            </button>
-          </div>
+          {renderAdminActions()}
         </div>
       </motion.div>
     </div>
