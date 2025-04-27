@@ -19,6 +19,23 @@ interface AuthState {
   clearError: () => void;
 }
 
+// Helper function to check if a user has admin role
+const checkAdminRole = (roles?: string[]) => {
+  if (!roles || !Array.isArray(roles)) return false;
+  
+  // Case insensitive check for 'admin' role
+  return roles.some(role => 
+    typeof role === 'string' && role.toUpperCase() === 'ADMIN'
+  );
+};
+
+// Log role information for debugging
+const logRoleInfo = (user: any) => {
+  console.log('AUTH STORE: User authenticated', user);
+  console.log('AUTH STORE: User roles:', user.roles);
+  console.log('AUTH STORE: Is admin:', checkAdminRole(user.roles));
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -33,7 +50,9 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await apiLoginUser({ username, password });
-          const isAdmin = response.roles?.includes('ADMIN') || false;
+          const isAdmin = checkAdminRole(response.roles);
+          
+          logRoleInfo(response);
           
           set({ 
             user: response, 
@@ -43,6 +62,13 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null
           });
+          
+          // Force reload the page to ensure all components recognize the admin status
+          if (isAdmin) {
+            setTimeout(() => {
+              window.location.href = '/admin';
+            }, 500);
+          }
         } catch (error: any) {
           set({ 
             error: error.response?.data?.message || 'Login failed. Please check your credentials.', 
@@ -60,7 +86,9 @@ export const useAuthStore = create<AuthState>()(
           console.log('Registering user with data:', userData);
           const response = await apiRegisterUser(userData);
           console.log('Registration response:', response);
-          const isAdmin = response.roles?.includes('ADMIN') || false;
+          const isAdmin = checkAdminRole(response.roles);
+          
+          logRoleInfo(response);
           
           set({ 
             user: response, 
@@ -113,6 +141,9 @@ export const useAuthStore = create<AuthState>()(
           isAdmin: false,
           error: null 
         });
+        
+        // Clear local storage completely to ensure clean state
+        localStorage.clear();
       },
 
       getProfile: async () => {
@@ -122,7 +153,9 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const userData = await getUserProfile();
-          const isAdmin = userData.roles?.includes('ADMIN') || false;
+          const isAdmin = checkAdminRole(userData.roles);
+          
+          logRoleInfo(userData);
           
           set({ 
             user: userData, 
@@ -132,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
             error: null
           });
         } catch (error: any) {
+          console.error('Profile fetch error:', error);
           set({ 
             error: error.response?.data?.message || 'Failed to get user profile', 
             isLoading: false 

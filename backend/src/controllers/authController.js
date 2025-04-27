@@ -242,3 +242,67 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw new AppError("Current password is incorrect", 401);
   }
 });
+
+// @desc    Debug roles for current user
+// @route   GET /api/auth/debug/roles
+// @access  Private
+export const debugUserRoles = asyncHandler(async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password_hash");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get user roles from UserRole collection
+    const userRoles = await UserRole.find({ user_id: user._id }).populate(
+      "role_id"
+    );
+
+    // Format role data for debugging
+    const roleDetails = userRoles.map((userRole) => {
+      if (userRole.role_id) {
+        return {
+          role_id: userRole.role_id._id,
+          role_name: userRole.role_id.role_name,
+          assigned_date: userRole.assigned_date,
+        };
+      } else {
+        return { error: "Invalid role reference", raw: userRole };
+      }
+    });
+
+    // Get plain role names
+    const roleNames = userRoles
+      .filter((userRole) => userRole.role_id && userRole.role_id.role_name)
+      .map((userRole) => userRole.role_id.role_name);
+
+    // Add default role if no roles found
+    if (roleNames.length === 0) {
+      roleNames.push("EMPLOYEE");
+    }
+
+    // Check admin status
+    const isAdmin = roleNames.includes("ADMIN");
+
+    res.json({
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+      },
+      roleDetails,
+      roleNames,
+      isAdmin,
+      debug: {
+        rawUserRoles: userRoles,
+      },
+    });
+  } catch (error) {
+    console.error("Debug roles error:", error);
+    res.status(500).json({
+      message: "Error retrieving role information",
+      error: error.message,
+    });
+  }
+});

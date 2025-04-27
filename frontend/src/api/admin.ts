@@ -1,5 +1,5 @@
 import api from './axios';
-import { AdminStats, LeaveRequest } from '../types';
+import { AdminStats, LeaveRequest, User } from '../types';
 
 /**
  * Get admin dashboard statistics
@@ -112,5 +112,55 @@ export const addHoliday = async (holidayData: { date: string; name: string; type
  */
 export const deleteHoliday = async (holidayId: string): Promise<{ success: boolean; message: string }> => {
   const response = await api.delete(`/admin/holidays/${holidayId}`);
+  return response.data;
+};
+
+/**
+ * Get all users in the system
+ * @returns Array of users
+ */
+export const getAllUsers = async (): Promise<User[]> => {
+  const response = await api.get('/admin/users');
+  return response.data;
+};
+
+/**
+ * Get user details by ID including roles
+ * @param userId - ID of the user to get
+ * @returns User data with roles
+ */
+export const getUserById = async (userId: string): Promise<{ user: User; roles: string[]; employee: any }> => {
+  const response = await api.get(`/admin/users/${userId}`);
+  return response.data;
+};
+
+/**
+ * Make a user an admin
+ * @param userId - ID of the user to make admin
+ * @param roleId - ID of the admin role
+ * @returns Success response
+ */
+export const makeUserAdmin = async (userId: string, roleId: string): Promise<{ message: string; userRole: any }> => {
+  const response = await api.post(`/admin/users/${userId}/roles`, { role_id: roleId });
+  return response.data;
+};
+
+/**
+ * Remove admin role from user
+ * @param userId - ID of the user
+ * @param roleId - ID of the admin role
+ * @returns Success response
+ */
+export const removeAdminRole = async (userId: string, roleId: string): Promise<{ message: string }> => {
+  const response = await api.delete(`/admin/users/${userId}/roles/${roleId}`);
+  return response.data;
+};
+
+/**
+ * Get available roles
+ * @returns Array of roles
+ */
+export const getRoles = async (): Promise<{ _id: string; role_name: string; description: string }[]> => {
+  const response = await api.get('/roles');
   return response.data;
 }; 

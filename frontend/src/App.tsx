@@ -5,6 +5,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import UserManagement from './pages/UserManagement';
+import RoleDebugger from './components/RoleDebugger';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -49,6 +51,9 @@ function App() {
 
   return (
     <Router>
+      {/* Debug tool for development */}
+      <RoleDebugger />
+      
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={
@@ -73,6 +78,12 @@ function App() {
         <Route path="/admin" element={
           <AdminRoute>
             <AdminDashboard />
+          </AdminRoute>
+        } />
+        
+        <Route path="/admin/users" element={
+          <AdminRoute>
+            <UserManagement />
           </AdminRoute>
         } />
 

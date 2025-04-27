@@ -5,6 +5,7 @@ import {
   getUserProfile,
   updateUserProfile,
   changePassword,
+  debugUserRoles,
 } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { validate } from "../middleware/validationMiddleware.js";
@@ -30,5 +31,8 @@ router.put(
   validate(changePasswordSchema),
   changePassword
 );
+
+// Debug route
+router.get("/debug/roles", protect, debugUserRoles);
 
 export default router;
