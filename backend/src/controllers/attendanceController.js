@@ -269,115 +269,170 @@ export const deleteAttendance = asyncHandler(async (req, res) => {
 // @route   POST /api/attendance/check-in
 // @access  Private
 export const checkIn = asyncHandler(async (req, res) => {
-  const { emp_id, check_in, remarks } = req.body;
+  try {
+    console.log("Check-in request from user ID:", req.user._id);
 
-  // Validate employee exists
-  const employee = await Employee.findById(emp_id);
-  if (!employee) {
-    res.status(404);
-    throw new AppError("Employee not found", 404);
-  }
+    // Find employee record for the current user
+    const employee = await Employee.findOne({ user_id: req.user._id });
+    console.log("Employee found:", employee ? "Yes" : "No");
 
-  // Check if it's a holiday
-  const today = new Date();
-  const { startOfDay, endOfDay } = getDayBoundaries(today);
-
-  const holiday = await Holiday.findOne({
-    holiday_date: {
-      $gte: startOfDay,
-      $lte: endOfDay,
-    },
-  });
-
-  // Check if it's a weekend
-  const isWeekendDay = isWeekend(today);
-
-  // Check if employee is on leave
-  const leaveRequest = await LeaveRequest.findOne({
-    emp_id,
-    start_date: { $lte: today },
-    end_date: { $gte: today },
-    status: "APPROVED",
-  });
-
-  // Determine status based on conditions
-  let status = "PRESENT";
-  if (holiday) {
-    status = "HOLIDAY";
-  } else if (isWeekendDay) {
-    status = "WEEKEND";
-  } else if (leaveRequest) {
-    status = "LEAVE";
-  }
-
-  // Check for existing attendance record today
-  const existingAttendance = await Attendance.findOne({
-    emp_id,
-    attendance_date: {
-      $gte: startOfDay,
-      $lte: endOfDay,
-    },
-  });
-
-  let attendance;
-  if (existingAttendance) {
-    // Update existing record
-    existingAttendance.check_in = check_in ? new Date(check_in) : new Date();
-    existingAttendance.status = status;
-    if (leaveRequest) {
-      existingAttendance.is_leave = true;
-      existingAttendance.leave_request_id = leaveRequest._id;
+    if (!employee) {
+      res.status(404);
+      throw new AppError(
+        "Employee profile not found for this user. Please contact HR to set up your profile.",
+        404
+      );
     }
-    if (remarks) existingAttendance.remarks = remarks;
 
-    attendance = await existingAttendance.save();
-  } else {
-    // Create new attendance record
-    attendance = await Attendance.create({
-      emp_id,
-      attendance_date: today,
-      check_in: check_in ? new Date(check_in) : new Date(),
-      status,
-      is_leave: leaveRequest ? true : false,
-      leave_request_id: leaveRequest ? leaveRequest._id : null,
-      remarks,
+    const emp_id = employee._id;
+    const { check_in, remarks } = req.body;
+
+    console.log("Employee ID for check-in:", emp_id);
+
+    // Check if it's a holiday
+    const today = new Date();
+    const { startOfDay, endOfDay } = getDayBoundaries(today);
+
+    const holiday = await Holiday.findOne({
+      holiday_date: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
     });
-  }
 
-  res.status(201).json(attendance);
+    // Check if it's a weekend
+    const isWeekendDay = isWeekend(today);
+
+    // Check if employee is on leave
+    const leaveRequest = await LeaveRequest.findOne({
+      emp_id,
+      start_date: { $lte: today },
+      end_date: { $gte: today },
+      status: "APPROVED",
+    });
+
+    // Determine status based on conditions
+    let status = "PRESENT";
+    if (holiday) {
+      status = "HOLIDAY";
+    } else if (isWeekendDay) {
+      status = "WEEKEND";
+    } else if (leaveRequest) {
+      status = "LEAVE";
+    }
+
+    // Check for existing attendance record today
+    const existingAttendance = await Attendance.findOne({
+      emp_id,
+      attendance_date: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    });
+
+    let attendance;
+    if (existingAttendance) {
+      // Update existing record
+      existingAttendance.check_in = check_in ? new Date(check_in) : new Date();
+      existingAttendance.status = status;
+      if (leaveRequest) {
+        existingAttendance.is_leave = true;
+        existingAttendance.leave_request_id = leaveRequest._id;
+      }
+      if (remarks) existingAttendance.remarks = remarks;
+
+      attendance = await existingAttendance.save();
+    } else {
+      // Create new attendance record
+      attendance = await Attendance.create({
+        emp_id,
+        attendance_date: today,
+        check_in: check_in ? new Date(check_in) : new Date(),
+        status,
+        is_leave: leaveRequest ? true : false,
+        leave_request_id: leaveRequest ? leaveRequest._id : null,
+        remarks,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Successfully checked in",
+      timestamp: attendance.check_in,
+      status: "IN",
+    });
+  } catch (error) {
+    console.error("Check-in error:", error.message);
+    res.status(error.statusCode || 500);
+    throw new AppError(
+      error.message || "Failed to check in",
+      error.statusCode || 500
+    );
+  }
 });
 
 // @desc    Check-out
 // @route   POST /api/attendance/check-out
 // @access  Private
 export const checkOut = asyncHandler(async (req, res) => {
-  const { emp_id, check_out, remarks } = req.body;
+  try {
+    console.log("Check-out request from user ID:", req.user._id);
 
-  // Get today's date
-  const today = new Date();
-  const { startOfDay, endOfDay } = getDayBoundaries(today);
+    // Find employee record for the current user
+    const employee = await Employee.findOne({ user_id: req.user._id });
+    console.log("Employee found:", employee ? "Yes" : "No");
 
-  // Find existing attendance record
-  const attendance = await Attendance.findOne({
-    emp_id,
-    attendance_date: {
-      $gte: startOfDay,
-      $lte: endOfDay,
-    },
-  });
+    if (!employee) {
+      res.status(404);
+      throw new AppError(
+        "Employee profile not found for this user. Please contact HR to set up your profile.",
+        404
+      );
+    }
 
-  if (!attendance) {
-    res.status(404);
-    throw new AppError("No check-in record found for today", 404);
+    const emp_id = employee._id;
+    const { check_out, remarks } = req.body;
+
+    console.log("Employee ID for check-out:", emp_id);
+
+    // Get today's date
+    const today = new Date();
+    const { startOfDay, endOfDay } = getDayBoundaries(today);
+
+    // Find existing attendance record
+    const attendance = await Attendance.findOne({
+      emp_id,
+      attendance_date: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    });
+
+    if (!attendance) {
+      res.status(404);
+      throw new AppError("No check-in record found for today", 404);
+    }
+
+    // Update check-out time
+    attendance.check_out = check_out ? new Date(check_out) : new Date();
+    if (remarks) attendance.remarks = remarks;
+
+    const updatedAttendance = await attendance.save();
+
+    res.json({
+      success: true,
+      message: "Successfully checked out",
+      timestamp: updatedAttendance.check_out,
+      status: "OUT",
+    });
+  } catch (error) {
+    console.error("Check-out error:", error.message);
+    res.status(error.statusCode || 500);
+    throw new AppError(
+      error.message || "Failed to check out",
+      error.statusCode || 500
+    );
   }
-
-  // Update check-out time
-  attendance.check_out = check_out ? new Date(check_out) : new Date();
-  if (remarks) attendance.remarks = remarks;
-
-  const updatedAttendance = await attendance.save();
-
-  res.json(updatedAttendance);
 });
 
 // @desc    Bulk create attendance

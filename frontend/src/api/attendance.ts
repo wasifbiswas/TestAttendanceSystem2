@@ -76,7 +76,7 @@ export const requestLeave = async (leaveData: Omit<LeaveRequest, 'id' | 'userId'
 
 export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
   try {
-    const response = await api.get<AttendanceSummary>('/attendance/summary');
+    const response = await api.get<AttendanceSummary>('/user/attendance/summary');
     return response.data;
   } catch (error) {
     console.error('Get attendance summary error:', error);
@@ -86,7 +86,7 @@ export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
 
 export const getUserLeaves = async (): Promise<LeaveRequest[]> => {
   try {
-    const response = await api.get<LeaveRequest[]>('/leave/user');
+    const response = await api.get<LeaveRequest[]>('/user/leaves');
     return response.data;
   } catch (error) {
     console.error('Error fetching user leaves:', error);
