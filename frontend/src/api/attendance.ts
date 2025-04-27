@@ -84,12 +84,12 @@ export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
   }
 };
 
-export const getUserLeaveRequests = async (): Promise<LeaveRequest[]> => {
+export const getUserLeaves = async (): Promise<LeaveRequest[]> => {
   try {
-    const response = await api.get<LeaveRequest[]>('/attendance/leave/history');
+    const response = await api.get<LeaveRequest[]>('/leave/user');
     return response.data;
   } catch (error) {
-    console.error('Get leave requests error:', error);
+    console.error('Error fetching user leaves:', error);
     throw error;
   }
 };

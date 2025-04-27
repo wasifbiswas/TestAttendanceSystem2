@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { FaCalendarAlt, FaPlus, FaTrash, FaArrowLeft } from 'react-icons/fa';
 import Toast from '../components/Toast';
+import HolidaySyncButton from '../components/HolidaySyncButton';
 
 // Define interface for holiday data
 interface Holiday {
@@ -306,6 +307,12 @@ const HolidayManagement = () => {
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
+          
+          <HolidaySyncButton 
+            holidays={holidays}
+            onSuccess={() => showToast('Holidays synced to Google Calendar', 'success')}
+            onError={(error) => showToast(`Failed to sync holidays: ${error}`, 'error')}
+          />
           
           {!isAddingHoliday && (
             <button

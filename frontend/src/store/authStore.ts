@@ -8,6 +8,8 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isManager: boolean;
+  department?: string;
   isLoading: boolean;
   error: string | null;
   
@@ -29,11 +31,23 @@ const checkAdminRole = (roles?: string[]) => {
   );
 };
 
+// Helper function to check if a user has manager role
+const checkManagerRole = (roles?: string[]) => {
+  if (!roles || !Array.isArray(roles)) return false;
+  
+  // Case insensitive check for 'manager' role
+  return roles.some(role => 
+    typeof role === 'string' && role.toUpperCase() === 'MANAGER'
+  );
+};
+
 // Log role information for debugging
 const logRoleInfo = (user: any) => {
   console.log('AUTH STORE: User authenticated', user);
   console.log('AUTH STORE: User roles:', user.roles);
   console.log('AUTH STORE: Is admin:', checkAdminRole(user.roles));
+  console.log('AUTH STORE: Is manager:', checkManagerRole(user.roles));
+  console.log('AUTH STORE: Department:', user.department);
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -43,6 +57,8 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isAdmin: false,
+      isManager: false,
+      department: undefined,
       isLoading: false,
       error: null,
 
@@ -51,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await apiLoginUser({ username, password });
           const isAdmin = checkAdminRole(response.roles);
+          const isManager = checkManagerRole(response.roles);
           
           logRoleInfo(response);
           
@@ -59,14 +76,20 @@ export const useAuthStore = create<AuthState>()(
             token: response.token, 
             isAuthenticated: true,
             isAdmin,
+            isManager,
+            department: response.department,
             isLoading: false,
             error: null
           });
           
-          // Force reload the page to ensure all components recognize the admin status
+          // Force reload the page to ensure all components recognize the role status
           if (isAdmin) {
             setTimeout(() => {
               window.location.href = '/admin';
+            }, 500);
+          } else if (isManager) {
+            setTimeout(() => {
+              window.location.href = '/manager';
             }, 500);
           }
         } catch (error: any) {
@@ -74,7 +97,8 @@ export const useAuthStore = create<AuthState>()(
             error: error.response?.data?.message || 'Login failed. Please check your credentials.', 
             isLoading: false,
             isAuthenticated: false,
-            isAdmin: false
+            isAdmin: false,
+            isManager: false
           });
           throw error;
         }
@@ -87,6 +111,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await apiRegisterUser(userData);
           console.log('Registration response:', response);
           const isAdmin = checkAdminRole(response.roles);
+          const isManager = checkManagerRole(response.roles);
           
           logRoleInfo(response);
           
@@ -95,6 +120,8 @@ export const useAuthStore = create<AuthState>()(
             token: response.token, 
             isAuthenticated: true,
             isAdmin,
+            isManager,
+            department: response.department,
             isLoading: false,
             error: null
           });
@@ -139,6 +166,8 @@ export const useAuthStore = create<AuthState>()(
           token: null, 
           isAuthenticated: false,
           isAdmin: false,
+          isManager: false,
+          department: undefined,
           error: null 
         });
         
@@ -154,6 +183,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const userData = await getUserProfile();
           const isAdmin = checkAdminRole(userData.roles);
+          const isManager = checkManagerRole(userData.roles);
           
           logRoleInfo(userData);
           
@@ -161,6 +191,8 @@ export const useAuthStore = create<AuthState>()(
             user: userData, 
             isAuthenticated: true,
             isAdmin,
+            isManager,
+            department: userData.department,
             isLoading: false,
             error: null
           });
@@ -177,7 +209,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated, isAdmin: state.isAdmin }),
+      partialize: (state) => ({ 
+        user: state.user, 
+        token: state.token, 
+        isAuthenticated: state.isAuthenticated, 
+        isAdmin: state.isAdmin,
+        isManager: state.isManager,
+        department: state.department
+      }),
     }
   )
 ); 

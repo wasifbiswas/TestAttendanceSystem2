@@ -11,6 +11,8 @@ import { FaUserClock } from 'react-icons/fa';
 import { FaClipboardList } from 'react-icons/fa';
 import { FaBell } from 'react-icons/fa';
 import { FaDatabase } from 'react-icons/fa';
+import { FaPlug } from 'react-icons/fa';
+import GoogleCalendarSettings from '../components/GoogleCalendarSettings';
 
 // Define interface for system settings
 interface SystemSettings {
@@ -44,6 +46,13 @@ interface SystemSettings {
     reportRetentionMonths: number;
     autoArchive: boolean;
   };
+  integrations: {
+    googleCalendar: {
+      autoSyncHolidays: boolean;
+      autoSyncLeave: boolean;
+      autoSyncSchedule: boolean;
+    };
+  };
 }
 
 const defaultSettings: SystemSettings = {
@@ -76,6 +85,13 @@ const defaultSettings: SystemSettings = {
     attendanceHistoryMonths: 12,
     reportRetentionMonths: 36,
     autoArchive: true,
+  },
+  integrations: {
+    googleCalendar: {
+      autoSyncHolidays: false,
+      autoSyncLeave: false,
+      autoSyncSchedule: false,
+    },
   },
 };
 
@@ -185,6 +201,7 @@ const SystemSettings = () => {
     { id: 'leave', label: 'Leave', icon: <FaClipboardList /> },
     { id: 'notifications', label: 'Notifications', icon: <FaBell /> },
     { id: 'dataRetention', label: 'Data Retention', icon: <FaDatabase /> },
+    { id: 'integrations', label: 'Integrations', icon: <FaPlug /> },
   ];
 
   if (isLoading) {
@@ -623,6 +640,26 @@ const SystemSettings = () => {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Integrations Settings */}
+          {activeTab === 'integrations' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">External Integrations</h3>
+              
+              <GoogleCalendarSettings 
+                initialSettings={settings.integrations.googleCalendar}
+                onChange={(googleCalendarSettings) => {
+                  setSettings(prev => ({
+                    ...prev,
+                    integrations: {
+                      ...prev.integrations,
+                      googleCalendar: googleCalendarSettings
+                    }
+                  }));
+                }}
+              />
             </div>
           )}
         </div>

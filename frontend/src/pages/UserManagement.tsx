@@ -9,18 +9,31 @@ import {
   getAllUsers,
   getRoles,
   makeUserAdmin,
-  removeAdminRole
+  removeAdminRole,
+  assignRoleToUser,
+  removeRoleFromUser,
+  getUserRoles
 } from '../api/admin';
+
+interface Role {
+  _id: string;
+  role_name: string;
+  description: string;
+}
+
+interface UserWithRoles extends User {
+  assignedRoles: string[];
+}
 
 const UserManagement = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuthStore();
-  const [users, setUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<{ _id: string; role_name: string; description: string }[]>([]);
-  const [adminRoleId, setAdminRoleId] = useState<string>('');
+  const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [showRoleModal, setShowRoleModal] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [actionType, setActionType] = useState<'add' | 'remove'>('add');
   const [toast, setToast] = useState({ 
@@ -48,14 +61,27 @@ const UserManagement = () => {
         getRoles()
       ]);
       
-      setUsers(usersData);
-      setRoles(rolesData);
+      // Fetch roles for each user
+      const usersWithRoles = await Promise.all(
+        usersData.map(async (user) => {
+          try {
+            const userRoles = await getUserRoles(user._id);
+            return {
+              ...user,
+              assignedRoles: userRoles
+            };
+          } catch (error) {
+            console.error(`Error fetching roles for user ${user._id}:`, error);
+            return {
+              ...user,
+              assignedRoles: []
+            };
+          }
+        })
+      );
       
-      // Find the admin role ID
-      const adminRole = rolesData.find(role => role.role_name === 'ADMIN');
-      if (adminRole) {
-        setAdminRoleId(adminRole._id);
-      }
+      setUsers(usersWithRoles);
+      setRoles(rolesData);
     } catch (error) {
       console.error('Error fetching data:', error);
       setToast({
@@ -68,86 +94,69 @@ const UserManagement = () => {
     }
   };
 
-  const handleMakeAdmin = async (userId: string) => {
-    if (!adminRoleId) {
-      setToast({
-        visible: true,
-        message: 'Admin role not found',
-        type: 'error'
-      });
-      return;
-    }
-
+  const handleAssignRole = async (userId: string, roleId: string) => {
     try {
-      await makeUserAdmin(userId, adminRoleId);
+      await assignRoleToUser(userId, roleId);
       setToast({
         visible: true,
-        message: 'User is now an admin',
+        message: 'Role assigned successfully',
         type: 'success'
       });
       // Refresh the user list
       fetchData();
     } catch (error) {
-      console.error('Error making user admin:', error);
+      console.error('Error assigning role:', error);
       setToast({
         visible: true,
-        message: 'Failed to make user an admin',
+        message: 'Failed to assign role',
         type: 'error'
       });
     }
   };
 
-  const handleRemoveAdmin = async (userId: string) => {
-    if (!adminRoleId) {
-      setToast({
-        visible: true,
-        message: 'Admin role not found',
-        type: 'error'
-      });
-      return;
-    }
-
+  const handleRemoveRole = async (userId: string, roleId: string) => {
     try {
-      await removeAdminRole(userId, adminRoleId);
+      await removeRoleFromUser(userId, roleId);
       setToast({
         visible: true,
-        message: 'Admin role removed from user',
+        message: 'Role removed successfully',
         type: 'success'
       });
       // Refresh the user list
       fetchData();
     } catch (error) {
-      console.error('Error removing admin role:', error);
+      console.error('Error removing role:', error);
       setToast({
         visible: true,
-        message: 'Failed to remove admin role',
+        message: 'Failed to remove role',
         type: 'error'
       });
     }
   };
 
-  const showAdminConfirmation = (userId: string, action: 'add' | 'remove') => {
+  const showRoleManagement = (userId: string) => {
     setSelectedUser(userId);
-    setActionType(action);
-    setShowConfirmation(true);
+    setShowRoleModal(true);
   };
 
-  const confirmAction = () => {
-    if (!selectedUser) return;
+  const confirmRoleAction = () => {
+    if (!selectedUser || !selectedRole) return;
     
     if (actionType === 'add') {
-      handleMakeAdmin(selectedUser);
+      handleAssignRole(selectedUser, selectedRole);
     } else {
-      handleRemoveAdmin(selectedUser);
+      handleRemoveRole(selectedUser, selectedRole);
     }
     
-    setShowConfirmation(false);
+    setShowRoleModal(false);
     setSelectedUser(null);
+    setSelectedRole(null);
   };
   
-  const cancelAction = () => {
-    setShowConfirmation(false);
+  const cancelRoleAction = () => {
+    setShowRoleModal(false);
     setSelectedUser(null);
+    setSelectedRole(null);
   };
 
   const handleCreateUserSuccess = () => {
@@ -158,6 +167,23 @@ const UserManagement = () => {
       type: 'success'
     });
     fetchData();
+  };
+
+  const getUserRoleNames = (user: UserWithRoles) => {
+    return user.assignedRoles
+      .map(roleId => {
+        const role = roles.find(r => r._id === roleId);
+        return role ? role.role_name : '';
+      })
+      .filter(name => name) // Filter out any empty strings
+      .join(', ');
+  };
+
+  const hasRole = (user: UserWithRoles, roleName: string) => {
+    return user.assignedRoles.some(roleId => {
+      const role = roles.find(r => r._id === roleId);
+      return role && role.role_name.toUpperCase() === roleName.toUpperCase();
+    });
   };
 
   const fadeIn = {
@@ -180,6 +206,8 @@ const UserManagement = () => {
     );
   }
 
+  const selectedUserData = selectedUser ? users.find(u => u._id === selectedUser) : null;
+
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
       <motion.div
@@ -193,17 +221,14 @@ const UserManagement = () => {
             User Management
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Manage user administration access
+            Manage users and their roles
           </p>
         </div>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-          </svg>
-          Add User
+          Create New User
         </button>
       </motion.div>
 
@@ -216,143 +241,207 @@ const UserManagement = () => {
         duration={5000}
       />
 
-      {/* Create User Form Modal */}
+      {/* User creation form */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
             <CreateUserForm 
-              onSuccess={handleCreateUserSuccess} 
               onCancel={() => setShowCreateForm(false)} 
+              onSuccess={handleCreateUserSuccess} 
             />
           </div>
         </div>
       )}
 
-      {/* Confirmation Modal */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              {actionType === 'add' ? 'Make User Admin' : 'Remove Admin Role'}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              {actionType === 'add' 
-                ? 'Are you sure you want to make this user an admin? They will have full access to the admin dashboard and functions.'
-                : 'Are you sure you want to remove admin privileges from this user?'
-              }
-            </p>
-            <div className="flex justify-end space-x-4">
+      {/* Role Management Modal */}
+      {showRoleModal && selectedUserData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Manage Roles for {selectedUserData.full_name}
+              </h2>
               <button
-                onClick={cancelAction}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                onClick={cancelRoleAction}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Current Roles</h3>
+              {selectedUserData.assignedRoles.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedUserData.assignedRoles.map(roleId => {
+                    const role = roles.find(r => r._id === roleId);
+                    if (!role) return null;
+                    
+                    return (
+                      <div 
+                        key={roleId}
+                        className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-3 py-1 rounded-full text-sm flex items-center"
+                      >
+                        {role.role_name}
+                        <button 
+                          onClick={() => {
+                            setActionType('remove');
+                            setSelectedRole(roleId);
+                            handleRemoveRole(selectedUserData._id, roleId);
+                          }}
+                          className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400">No roles assigned</p>
+              )}
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Assign New Role</h3>
+              <select
+                value={selectedRole || ''}
+                onChange={(e) => {
+                  setSelectedRole(e.target.value || null);
+                  setActionType('add');
+                }}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Select a role</option>
+                {roles.map(role => (
+                  <option 
+                    key={role._id} 
+                    value={role._id}
+                    disabled={selectedUserData.assignedRoles.includes(role._id)}
+                  >
+                    {role.role_name} - {role.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={cancelRoleAction}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600"
               >
                 Cancel
               </button>
-              <button
-                onClick={confirmAction}
-                className={`px-4 py-2 text-white rounded-md ${
-                  actionType === 'add' 
-                    ? 'bg-blue-500 hover:bg-blue-600' 
-                    : 'bg-red-500 hover:bg-red-600'
-                }`}
-              >
-                Confirm
-              </button>
+              {selectedRole && actionType === 'add' && (
+                <button
+                  onClick={() => handleAssignRole(selectedUserData._id, selectedRole)}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Assign Role
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* User List */}
+      {/* Users Table */}
       <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-white">System Users</h2>
-        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Username
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  User
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Full Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Roles
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Admin
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {users.map((user, index) => {
-                const isAdmin = user.roles?.includes('ADMIN');
-                
-                return (
-                  <motion.tr 
-                    key={user._id}
-                    custom={index}
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeIn}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{user.username}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">{user.full_name || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${user.is_active 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        }`}
-                      >
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${isAdmin 
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' 
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
-                        }`}
-                      >
-                        {isAdmin ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {isAdmin ? (
-                        <button
-                          onClick={() => showAdminConfirmation(user._id, 'remove')}
-                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          Remove Admin
-                        </button>
+              {users.map((user, index) => (
+                <motion.tr 
+                  key={user._id}
+                  custom={index}
+                  initial="hidden"
+                  animate="visible"
+                  variants={fadeIn}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {user.full_name}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      @{user.username}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {user.email}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-1">
+                      {user.assignedRoles.length > 0 ? (
+                        user.assignedRoles.map(roleId => {
+                          const role = roles.find(r => r._id === roleId);
+                          if (!role) return null;
+                          
+                          return (
+                            <span 
+                              key={roleId}
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                ${role.role_name.toUpperCase() === 'ADMIN' 
+                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                                  : role.role_name.toUpperCase() === 'MANAGER'
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                  : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                }`}
+                            >
+                              {role.role_name}
+                            </span>
+                          );
+                        })
                       ) : (
-                        <button
-                          onClick={() => showAdminConfirmation(user._id, 'add')}
-                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
-                          Make Admin
-                        </button>
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                          No roles
+                        </span>
                       )}
-                    </td>
-                  </motion.tr>
-                );
-              })}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      user.is_active 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                    }`}>
+                      {user.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => showRoleManagement(user._id)}
+                      className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      Manage Roles
+                    </button>
+                  </td>
+                </motion.tr>
+              ))}
             </tbody>
           </table>
         </div>

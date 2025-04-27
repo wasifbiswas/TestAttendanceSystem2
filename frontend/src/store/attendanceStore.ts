@@ -4,22 +4,28 @@ import {
   checkOut as apiCheckOut,
   requestLeave as apiRequestLeave,
   getAttendanceSummary as apiGetAttendanceSummary,
+  getUserLeaves as apiGetUserLeaves,
   AttendanceSummary, 
   LeaveRequest,
   CheckInOutResponse
 } from '../api/attendance';
+import { googleCalendarService } from '../services/GoogleCalendarService';
 
 interface AttendanceState {
   isLoading: boolean;
   error: string | null;
   lastCheckInOut: CheckInOutResponse | null;
   attendanceSummary: AttendanceSummary | null;
+  userLeaves: LeaveRequest[];
+  calendarSynced: boolean;
   
   // Actions
   checkIn: () => Promise<void>;
   checkOut: () => Promise<void>;
   requestLeave: (leaveData: LeaveRequest) => Promise<void>;
   fetchAttendanceSummary: () => Promise<void>;
+  fetchUserLeaves: () => Promise<LeaveRequest[]>;
+  syncLeavesToCalendar: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -28,6 +34,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   error: null,
   lastCheckInOut: null,
   attendanceSummary: null,
+  userLeaves: [],
+  calendarSynced: false,
 
   checkIn: async () => {
     set({ isLoading: true, error: null });
@@ -66,10 +74,41 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   requestLeave: async (leaveData) => {
     set({ isLoading: true, error: null });
     try {
-      await apiRequestLeave(leaveData);
+      const response = await apiRequestLeave(leaveData);
       set({ isLoading: false });
-      // Re-fetch attendance summary to update leave balances
+      
+      // Re-fetch attendance summary and user leaves to update leave balances
       get().fetchAttendanceSummary();
+      const leaves = await get().fetchUserLeaves();
+      
+      // If the leave request was successful, attempt to sync with Google Calendar
+      if (response && googleCalendarService.isUserSignedIn()) {
+        try {
+          const newLeave = leaves.find(leave => 
+            leave.start_date === leaveData.startDate && 
+            leave.end_date === leaveData.endDate &&
+            leave.type === leaveData.type
+          );
+          
+          if (newLeave && newLeave.status === 'Approved') {
+            const startDate = new Date(newLeave.start_date);
+            const endDate = new Date(newLeave.end_date);
+            endDate.setDate(endDate.getDate() + 1); // Add 1 day for Google Calendar all-day events
+            
+            await googleCalendarService.createLeaveEvent(
+              `${newLeave.type} Leave`,
+              startDate,
+              endDate,
+              `Reason: ${newLeave.reason}\nStatus: ${newLeave.status}`
+            );
+          }
+        } catch (error) {
+          console.error('Failed to sync leave with Google Calendar:', error);
+          // We don't set an error state here as the leave request itself was successful
+        }
+      }
+      
+      return response;
     } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to request leave. Please try again.', 
@@ -90,6 +129,66 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to fetch attendance summary.', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  fetchUserLeaves: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const leaves = await apiGetUserLeaves();
+      set({ 
+        userLeaves: leaves,
+        isLoading: false
+      });
+      return leaves;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to fetch leave history.', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  syncLeavesToCalendar: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      // First make sure we have the latest leaves
+      const leaves = await get().fetchUserLeaves();
+      
+      // Only sync approved leaves
+      const approvedLeaves = leaves.filter(leave => leave.status === 'Approved');
+      
+      // Make sure Google Calendar is initialized and user is signed in
+      if (!googleCalendarService.isUserSignedIn()) {
+        await googleCalendarService.init();
+        await googleCalendarService.signIn();
+      }
+      
+      // Sync each leave to Google Calendar
+      for (const leave of approvedLeaves) {
+        const startDate = new Date(leave.start_date);
+        const endDate = new Date(leave.end_date);
+        endDate.setDate(endDate.getDate() + 1); // Add 1 day for Google Calendar all-day events
+        
+        await googleCalendarService.createLeaveEvent(
+          `${leave.type} Leave`,
+          startDate,
+          endDate,
+          `Reason: ${leave.reason}\nStatus: ${leave.status}`
+        );
+      }
+      
+      set({ 
+        calendarSynced: true,
+        isLoading: false
+      });
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to sync leaves with Google Calendar.', 
         isLoading: false 
       });
       throw error;

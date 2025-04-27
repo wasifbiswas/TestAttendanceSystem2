@@ -3,61 +3,64 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import Toast from '../components/Toast';
-import { AdminStats } from '../types';
 import { 
-  getAdminStats, 
-  getPendingLeaveRequests, 
+  getDepartmentStats, 
+  getDepartmentLeaveRequests, 
   approveLeaveRequest, 
   denyLeaveRequest,
-  getDepartmentStats,
-  useAdminAPI
-} from '../api/admin';
+  getDepartmentEmployees,
+  useManagerAPI
+} from '../api/manager';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaUsers, FaCalendarAlt } from 'react-icons/fa';
 
-// Removed mock admin data
+interface DepartmentStats {
+  departmentName: string;
+  employees: number;
+  attendance: {
+    present: number;
+    absent: number;
+    onLeave: number;
+  };
+  pendingLeaveRequests: number;
+}
 
-const AdminDashboard = () => {
+const ManagerDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout, isAdmin } = useAuthStore();
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const { user, logout, isManager, department } = useAuthStore();
+  const [stats, setStats] = useState<DepartmentStats | null>(null);
   const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
-  const [departmentStats, setDepartmentStats] = useState<any[]>([]);
+  const [departmentEmployees, setDepartmentEmployees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState({ 
     visible: false, 
     message: '', 
     type: 'info' as 'success' | 'error' | 'info' 
   });
-  const { getAdminStats: useAdminStats } = useAdminAPI();
-
-  // Calculate total employees from department stats as a fallback
-  const totalEmployees = departmentStats.length > 0 
-    ? departmentStats.reduce((sum, dept) => sum + dept.employeeCount, 0) 
-    : (stats?.employees || 0);
+  const { getDepartmentStats: useDepartmentStats } = useManagerAPI();
 
   useEffect(() => {
-    // Check if user is admin, redirect to regular dashboard if not
-    if (!isAdmin) {
+    // Check if user is manager, redirect to regular dashboard if not
+    if (!isManager) {
       navigate('/dashboard');
       return;
     }
 
-    // Fetch admin stats
-    fetchAdminStats();
-    fetchPendingLeaveRequests();
+    // Fetch department data
     fetchDepartmentStats();
-  }, [isAdmin, navigate]);
+    fetchDepartmentLeaveRequests();
+    fetchDepartmentEmployees();
+  }, [isManager, navigate]);
 
-  const fetchAdminStats = async () => {
+  const fetchDepartmentStats = async () => {
     try {
-      const data = await useAdminStats();
+      const data = await useDepartmentStats();
       setStats(data);
     } catch (error) {
-      console.error('Error fetching admin stats:', error);
+      console.error('Error fetching department stats:', error);
       setToast({
         visible: true,
-        message: 'Failed to fetch admin statistics',
+        message: 'Failed to fetch department statistics',
         type: 'error'
       });
     } finally {
@@ -65,21 +68,21 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchPendingLeaveRequests = async () => {
+  const fetchDepartmentLeaveRequests = async () => {
     try {
-      const data = await getPendingLeaveRequests();
+      const data = await getDepartmentLeaveRequests();
       setPendingLeaves(data);
     } catch (error) {
-      console.error('Error fetching pending leave requests:', error);
+      console.error('Error fetching department leave requests:', error);
     }
   };
 
-  const fetchDepartmentStats = async () => {
+  const fetchDepartmentEmployees = async () => {
     try {
-      const data = await getDepartmentStats();
-      setDepartmentStats(data);
+      const data = await getDepartmentEmployees();
+      setDepartmentEmployees(data);
     } catch (error) {
-      console.error('Error fetching department stats:', error);
+      console.error('Error fetching department employees:', error);
     }
   };
 
@@ -92,7 +95,7 @@ const AdminDashboard = () => {
         type: 'success'
       });
       // Refresh the pending leave requests
-      fetchPendingLeaveRequests();
+      fetchDepartmentLeaveRequests();
     } catch (error) {
       console.error('Error approving leave request:', error);
       setToast({
@@ -112,7 +115,7 @@ const AdminDashboard = () => {
         type: 'success'
       });
       // Refresh the pending leave requests
-      fetchPendingLeaveRequests();
+      fetchDepartmentLeaveRequests();
     } catch (error) {
       console.error('Error denying leave request:', error);
       setToast({
@@ -148,40 +151,32 @@ const AdminDashboard = () => {
     }),
   };
 
-  // Admin action buttons section
-  const renderAdminActions = () => {
+  // Manager action buttons section
+  const renderManagerActions = () => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <button
-          onClick={() => navigate('/admin/employees')}
+          onClick={() => navigate('/manager/employees')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
         >
-          <FaUserPlus className="text-3xl text-blue-500 mb-2" />
-          <span className="font-medium">Add Employee</span>
+          <FaUsers className="text-3xl text-blue-500 mb-2" />
+          <span className="font-medium">View Employees</span>
         </button>
         
         <button
-          onClick={() => navigate('/admin/reports')}
+          onClick={() => navigate('/manager/reports')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
         >
           <FaChartBar className="text-3xl text-green-500 mb-2" />
-          <span className="font-medium">Generate Reports</span>
+          <span className="font-medium">Department Reports</span>
         </button>
         
         <button
-          onClick={() => navigate('/admin/settings')}
+          onClick={() => navigate('/manager/schedule')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
         >
-          <FaCog className="text-3xl text-purple-500 mb-2" />
-          <span className="font-medium">System Settings</span>
-        </button>
-        
-        <button
-          onClick={() => navigate('/admin/holidays')}
-          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
-        >
-          <FaCalendarAlt className="text-3xl text-orange-500 mb-2" />
-          <span className="font-medium">Manage Holidays</span>
+          <FaCalendarAlt className="text-3xl text-purple-500 mb-2" />
+          <span className="font-medium">Manage Schedule</span>
         </button>
       </div>
     );
@@ -205,32 +200,21 @@ const AdminDashboard = () => {
       >
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            Admin Dashboard
+            {department} Department Dashboard
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Welcome, {user?.full_name || 'Admin'}
+            Welcome, {user?.full_name || 'Manager'}
           </p>
         </div>
-        <div className="flex space-x-4">
-          <button
-            onClick={() => navigate('/admin/users')}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-600 transition-colors text-sm font-medium flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            Manage Users
-          </button>
-          <button
-            onClick={handleLogout}
-            className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Logout
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
+        </button>
       </motion.div>
 
       {/* Toast notification */}
@@ -243,7 +227,7 @@ const AdminDashboard = () => {
       />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
         <motion.div
           custom={0}
           initial="hidden"
@@ -258,8 +242,8 @@ const AdminDashboard = () => {
               </svg>
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Employees</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.employees || totalEmployees}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Department Employees</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.employees || 0}</p>
             </div>
           </div>
         </motion.div>
@@ -303,29 +287,9 @@ const AdminDashboard = () => {
             </div>
           </div>
         </motion.div>
-
-        <motion.div
-          custom={3}
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 sm:p-6"
-        >
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">On Leave</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.attendance?.onLeave || 0}</p>
-            </div>
-          </div>
-        </motion.div>
       </div>
 
-      {/* Pending Approvals and Departments */}
+      {/* Pending Approvals and Department Employees */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <motion.div
           custom={4}
@@ -380,7 +344,7 @@ const AdminDashboard = () => {
           className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden"
         >
           <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Department Overview</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Department Employees</h3>
           </div>
           <div className="p-6">
             <div className="overflow-hidden">
@@ -388,21 +352,28 @@ const AdminDashboard = () => {
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Department
+                      Employee
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Employees
+                      Status
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {departmentStats.map((dept) => (
-                    <tr key={dept.department}>
+                  {departmentEmployees.map((employee) => (
+                    <tr key={employee.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {dept.department}
+                        {employee.name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {dept.employeeCount}
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          employee.status === 'PRESENT' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                          employee.status === 'ABSENT' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                          employee.status === 'LEAVE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
+                          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                        }`}>
+                          {employee.status}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -413,7 +384,7 @@ const AdminDashboard = () => {
         </motion.div>
       </div>
 
-      {/* Admin Actions */}
+      {/* Manager Actions */}
       <motion.div
         custom={6}
         initial="hidden"
@@ -422,14 +393,14 @@ const AdminDashboard = () => {
         className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-8"
       >
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Admin Actions</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Manager Actions</h3>
         </div>
         <div className="p-6">
-          {renderAdminActions()}
+          {renderManagerActions()}
         </div>
       </motion.div>
     </div>
   );
 };
 
-export default AdminDashboard; 
+export default ManagerDashboard; 

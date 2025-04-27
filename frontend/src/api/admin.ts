@@ -255,4 +255,36 @@ export const removeAdminRole = async (userId: string, roleId: string): Promise<{
 export const getRoles = async (): Promise<{ _id: string; role_name: string; description: string }[]> => {
   const response = await api.get('/roles');
   return response.data;
+};
+
+/**
+ * Assign a role to a user
+ * @param userId - ID of the user
+ * @param roleId - ID of the role to assign
+ * @returns Success response
+ */
+export const assignRoleToUser = async (userId: string, roleId: string): Promise<{ message: string; userRole: any }> => {
+  const response = await api.post(`/admin/users/${userId}/roles`, { role_id: roleId });
+  return response.data;
+};
+
+/**
+ * Remove a role from user
+ * @param userId - ID of the user
+ * @param roleId - ID of the role to remove
+ * @returns Success response
+ */
+export const removeRoleFromUser = async (userId: string, roleId: string): Promise<{ message: string }> => {
+  const response = await api.delete(`/admin/users/${userId}/roles/${roleId}`);
+  return response.data;
+};
+
+/**
+ * Get roles assigned to a user
+ * @param userId - ID of the user
+ * @returns Array of role IDs
+ */
+export const getUserRoles = async (userId: string): Promise<string[]> => {
+  const response = await api.get(`/admin/users/${userId}/roles`);
+  return response.data;
 }; 

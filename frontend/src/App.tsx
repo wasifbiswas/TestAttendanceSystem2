@@ -5,12 +5,15 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import ManagerDashboard from './pages/ManagerDashboard';
 import UserManagement from './pages/UserManagement';
 import EmployeeManagement from './pages/EmployeeManagement';
 import ReportsPage from './pages/ReportsPage';
 import SystemSettings from './pages/SystemSettings';
 import HolidayManagement from './pages/HolidayManagement';
+import DepartmentSchedule from './pages/DepartmentSchedule';
 import RoleDebugger from './components/RoleDebugger';
+import { GoogleCalendarProvider } from './context/GoogleCalendarContext';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -43,8 +46,26 @@ const AdminRoute = ({ children }: { children: ReactNode }) => {
   return <>{children}</>;
 };
 
+// Manager route component
+const ManagerRoute = ({ children }: { children: ReactNode }) => {
+  const { isAuthenticated, isManager, isLoading } = useAuthStore();
+  const location = useLocation();
+
+  // If not authenticated, redirect to login
+  if (!isAuthenticated && !isLoading) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // If authenticated but not manager, redirect to regular dashboard
+  if (isAuthenticated && !isManager && !isLoading) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 function App() {
-  const { getProfile, isAuthenticated, isAdmin } = useAuthStore();
+  const { getProfile, isAuthenticated, isAdmin, isManager } = useAuthStore();
 
   // Check if user is already authenticated on app load
   useEffect(() => {
@@ -53,89 +74,117 @@ function App() {
     }
   }, [isAuthenticated, getProfile]);
 
+  // Determine the appropriate redirect based on user role
+  const getRedirectPath = () => {
+    if (isAdmin) return "/admin";
+    if (isManager) return "/manager";
+    return "/dashboard";
+  };
+
   return (
     <Router>
-      {/* Debug tool for development */}
-      <RoleDebugger />
-      
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={
-          isAuthenticated ? (
-            isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />
-          ) : <Login />
-        } />
-        <Route path="/register" element={
-          isAuthenticated ? (
-            isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />
-          ) : <Register />
-        } />
-
-        {/* Protected routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-
-        {/* Admin routes */}
-        <Route path="/admin" element={
-          <AdminRoute>
-            <AdminDashboard />
-          </AdminRoute>
-        } />
+      <GoogleCalendarProvider>
+        {/* Debug tool for development */}
+        <RoleDebugger />
         
-        <Route path="/admin/users" element={
-          <AdminRoute>
-            <UserManagement />
-          </AdminRoute>
-        } />
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={
+            isAuthenticated ? <Navigate to={getRedirectPath()} replace /> : <Login />
+          } />
+          <Route path="/register" element={
+            isAuthenticated ? <Navigate to={getRedirectPath()} replace /> : <Register />
+          } />
 
-        <Route path="/admin/employees" element={
-          <AdminRoute>
-            <EmployeeManagement />
-          </AdminRoute>
-        } />
+          {/* Protected routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
 
-        <Route path="/admin/reports" element={
-          <AdminRoute>
-            <ReportsPage />
-          </AdminRoute>
-        } />
+          {/* Admin routes */}
+          <Route path="/admin" element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          } />
+          
+          <Route path="/admin/users" element={
+            <AdminRoute>
+              <UserManagement />
+            </AdminRoute>
+          } />
 
-        <Route path="/admin/settings" element={
-          <AdminRoute>
-            <SystemSettings />
-          </AdminRoute>
-        } />
+          <Route path="/admin/employees" element={
+            <AdminRoute>
+              <EmployeeManagement />
+            </AdminRoute>
+          } />
 
-        <Route path="/admin/holidays" element={
-          <AdminRoute>
-            <HolidayManagement />
-          </AdminRoute>
-        } />
+          <Route path="/admin/reports" element={
+            <AdminRoute>
+              <ReportsPage />
+            </AdminRoute>
+          } />
 
-        {/* Redirect root to admin, dashboard or login based on authentication status */}
-        <Route path="/" element={
-          isAuthenticated ? (
-            isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />
-          ) : <Navigate to="/login" replace />
-        } />
+          <Route path="/admin/settings" element={
+            <AdminRoute>
+              <SystemSettings />
+            </AdminRoute>
+          } />
 
-        {/* 404 page */}
-        <Route path="*" element={
-          <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">404</h1>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">Page not found</p>
-            <button
-              onClick={() => window.history.back()}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              Go Back
-            </button>
-          </div>
-        } />
-      </Routes>
+          <Route path="/admin/holidays" element={
+            <AdminRoute>
+              <HolidayManagement />
+            </AdminRoute>
+          } />
+
+          {/* Manager routes */}
+          <Route path="/manager" element={
+            <ManagerRoute>
+              <ManagerDashboard />
+            </ManagerRoute>
+          } />
+
+          <Route path="/manager/employees" element={
+            <ManagerRoute>
+              <EmployeeManagement departmentOnly={true} />
+            </ManagerRoute>
+          } />
+
+          <Route path="/manager/reports" element={
+            <ManagerRoute>
+              <ReportsPage departmentOnly={true} />
+            </ManagerRoute>
+          } />
+
+          <Route path="/manager/schedule" element={
+            <ManagerRoute>
+              <DepartmentSchedule />
+            </ManagerRoute>
+          } />
+
+          {/* Redirect root to admin, manager, dashboard, or login based on authentication status */}
+          <Route path="/" element={
+            isAuthenticated ? <Navigate to={getRedirectPath()} replace /> : <Navigate to="/login" replace />
+          } />
+
+          {/* 404 page */}
+          <Route path="*" element={
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+              <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">404</h1>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">Page not found</p>
+              <button
+                onClick={() => window.history.back()}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                Go Back
+              </button>
+            </div>
+          } />
+        </Routes>
+      </GoogleCalendarProvider>
     </Router>
   );
 }

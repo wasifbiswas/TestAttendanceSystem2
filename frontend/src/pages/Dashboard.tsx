@@ -3,25 +3,13 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAttendanceStore } from '../store/attendanceStore';
+import { useGoogleCalendar } from '../context/GoogleCalendarContext';
 import LeaveRequestModal from '../components/LeaveRequestModal';
 import ScheduleModal from '../components/ScheduleModal';
 import Toast from '../components/Toast';
 import { LeaveRequest } from '../api/attendance';
-
-// Mock data for testing
-const mockData = {
-  attendance: {
-    present: 23,
-    absent: 1,
-    late: 2,
-    leaves: 4
-  },
-  leaveBalance: {
-    annual: 15,
-    sick: 7,
-    casual: 5
-  }
-};
+import RecentLeaves from '../components/RecentLeaves';
+import { FaGoogle, FaSync } from 'react-icons/fa';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,15 +19,20 @@ const Dashboard = () => {
     checkOut, 
     requestLeave, 
     fetchAttendanceSummary, 
+    fetchUserLeaves,
+    syncLeavesToCalendar,
     attendanceSummary, 
+    userLeaves,
     lastCheckInOut, 
     isLoading, 
     error 
   } = useAttendanceStore();
+  const { isInitialized, isSignedIn, initialize, signIn } = useGoogleCalendar();
 
   // State for modals and notifications
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [toast, setToast] = useState({ 
     visible: false, 
     message: '', 
@@ -47,9 +40,14 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    // Fetch attendance data when component mounts
-    fetchAttendanceSummary();
-  }, [fetchAttendanceSummary]);
+    // Fetch attendance data and user leaves when component mounts
+    const loadData = async () => {
+      await fetchAttendanceSummary();
+      await fetchUserLeaves();
+    };
+    
+    loadData();
+  }, [fetchAttendanceSummary, fetchUserLeaves]);
 
   // Show toast notification for errors
   useEffect(() => {
@@ -88,6 +86,7 @@ const Dashboard = () => {
   const handleCheckIn = async () => {
     try {
       await checkIn();
+      await fetchAttendanceSummary(); // Refresh stats after check-in
     } catch (error) {
       // Error is already handled in the store
     }
@@ -96,6 +95,7 @@ const Dashboard = () => {
   const handleCheckOut = async () => {
     try {
       await checkOut();
+      await fetchAttendanceSummary(); // Refresh stats after check-out
     } catch (error) {
       // Error is already handled in the store
     }
@@ -104,6 +104,7 @@ const Dashboard = () => {
   const handleLeaveRequest = async (leaveData: LeaveRequest) => {
     try {
       await requestLeave(leaveData);
+      await fetchUserLeaves(); // Refresh leaves list after new request
       setToast({
         visible: true,
         message: 'Leave request submitted successfully',
@@ -127,6 +128,39 @@ const Dashboard = () => {
     }, 1000);
   };
 
+  const handleSyncToCalendar = async () => {
+    try {
+      setIsSyncingCalendar(true);
+      
+      // Initialize Google Calendar if needed
+      if (!isInitialized) {
+        await initialize();
+      }
+      
+      // Sign in if not already signed in
+      if (!isSignedIn) {
+        await signIn();
+      }
+      
+      // Sync leaves to calendar
+      await syncLeavesToCalendar();
+      
+      setToast({
+        visible: true,
+        message: 'Leaves successfully synced to Google Calendar',
+        type: 'success'
+      });
+    } catch (error: any) {
+      setToast({
+        visible: true,
+        message: error.message || 'Failed to sync leaves to Google Calendar',
+        type: 'error'
+      });
+    } finally {
+      setIsSyncingCalendar(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
       <motion.div
@@ -138,15 +172,41 @@ const Dashboard = () => {
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
           Welcome back, {user?.full_name || 'User'}!
         </h1>
-        <button
-          onClick={handleLogout}
-          className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Logout
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleSyncToCalendar}
+            disabled={isSyncingCalendar || isLoading}
+            className={`
+              flex items-center gap-2 px-3 py-2 rounded-md text-white text-sm
+              ${(isSyncingCalendar || isLoading) 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700'}
+              transition-colors duration-200
+            `}
+          >
+            {isSyncingCalendar ? (
+              <>
+                <FaSync className="animate-spin" />
+                <span>Syncing...</span>
+              </>
+            ) : (
+              <>
+                <FaGoogle />
+                <span>Sync to Calendar</span>
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={handleLogout}
+            className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Logout
+          </button>
+        </div>
       </motion.div>
 
       {/* Toast notification */}
@@ -308,6 +368,32 @@ const Dashboard = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* Recent Leave Requests - using real data from API */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        className="mt-8"
+      >
+        <RecentLeaves 
+          leaves={userLeaves || []}
+          onSyncSuccess={(id) => {
+            setToast({
+              visible: true,
+              message: 'Leave synced to Google Calendar',
+              type: 'success'
+            });
+          }}
+          onSyncError={(id, error) => {
+            setToast({
+              visible: true,
+              message: `Failed to sync leave: ${error}`,
+              type: 'error'
+            });
+          }}
+        />
+      </motion.div>
     </div>
   );
 };

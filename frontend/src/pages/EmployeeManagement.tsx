@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminAPI } from '../api/admin';
+import { useManagerAPI } from '../api/manager';
+import { useAuthStore } from '../store/authStore';
 import Toast from '../components/Toast';
 import { BiLoaderAlt } from 'react-icons/bi';
 import { FaUserPlus, FaEdit, FaTrash, FaArrowLeft } from 'react-icons/fa';
@@ -15,7 +17,12 @@ type Employee = {
   status: 'active' | 'inactive';
 };
 
-const EmployeeManagement: React.FC = () => {
+interface EmployeeManagementProps {
+  departmentOnly?: boolean;
+}
+
+const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly = false }) => {
+  const { isAdmin, isManager, department } = useAuthStore();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isAddingEmployee, setIsAddingEmployee] = useState<boolean>(false);
@@ -38,6 +45,7 @@ const EmployeeManagement: React.FC = () => {
   });
 
   const { getEmployees, createEmployee, updateEmployee, deleteEmployee } = useAdminAPI();
+  const { getDepartmentEmployees } = useManagerAPI();
 
   // Mock data for initial development
   const mockEmployees: Employee[] = [
@@ -73,17 +81,28 @@ const EmployeeManagement: React.FC = () => {
   useEffect(() => {
     // Fetch employees from API (using mock data for now)
     fetchEmployees();
-  }, []);
+  }, [departmentOnly]);
 
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      // const response = await getEmployees();
+      // In a real implementation:
+      // const response = departmentOnly 
+      //   ? await getDepartmentEmployees() 
+      //   : await getEmployees();
       // setEmployees(response.data);
       
       // Using mock data for now
       setTimeout(() => {
-        setEmployees(mockEmployees);
+        if (departmentOnly && department) {
+          // Filter by the manager's department
+          const filteredEmployees = mockEmployees.filter(
+            emp => emp.department.toLowerCase() === department.toLowerCase()
+          );
+          setEmployees(filteredEmployees);
+        } else {
+          setEmployees(mockEmployees);
+        }
         setLoading(false);
       }, 1000);
     } catch (error) {
@@ -104,7 +123,7 @@ const EmployeeManagement: React.FC = () => {
     setFormData({
       name: '',
       email: '',
-      department: '',
+      department: departmentOnly && department ? department : '',
       position: '',
       password: ''
     });
@@ -114,19 +133,24 @@ const EmployeeManagement: React.FC = () => {
     e.preventDefault();
     
     try {
+      // Force department for manager adding employees
+      const employeeData = departmentOnly && department 
+        ? { ...formData, department }
+        : formData;
+
       // Mock successful addition
       const newEmployee: Employee = {
         id: Date.now().toString(),
-        name: formData.name,
-        email: formData.email,
-        department: formData.department,
-        position: formData.position,
+        name: employeeData.name,
+        email: employeeData.email,
+        department: employeeData.department,
+        position: employeeData.position,
         joinDate: new Date().toISOString().split('T')[0],
         status: 'active'
       };
 
       // In real implementation, you would call the API
-      // await createEmployee(formData);
+      // await createEmployee(employeeData);
       
       setEmployees([...employees, newEmployee]);
       resetForm();
@@ -143,7 +167,7 @@ const EmployeeManagement: React.FC = () => {
     setFormData({
       name: employee.name,
       email: employee.email,
-      department: employee.department,
+      department: departmentOnly && department ? department : employee.department,
       position: employee.position,
       password: '' // Don't set password for edit
     });
@@ -156,17 +180,22 @@ const EmployeeManagement: React.FC = () => {
     if (!currentEmployee) return;
 
     try {
+      // Force department for manager updating employees
+      const employeeData = departmentOnly && department 
+        ? { ...formData, department }
+        : formData;
+
       // Mock successful update
       const updatedEmployee: Employee = {
         ...currentEmployee,
-        name: formData.name,
-        email: formData.email,
-        department: formData.department,
-        position: formData.position
+        name: employeeData.name,
+        email: employeeData.email,
+        department: employeeData.department,
+        position: employeeData.position
       };
 
       // In real implementation, you would call the API
-      // await updateEmployee(currentEmployee.id, formData);
+      // await updateEmployee(currentEmployee.id, employeeData);
       
       setEmployees(employees.map(emp => 
         emp.id === currentEmployee.id ? updatedEmployee : emp
@@ -259,20 +288,22 @@ const EmployeeManagement: React.FC = () => {
             />
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Department
-            </label>
-            <input
-              type="text"
-              name="department"
-              value={formData.department}
-              onChange={handleInputChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="Engineering"
-            />
-          </div>
+          {!departmentOnly && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Department
+              </label>
+              <input
+                type="text"
+                name="department"
+                value={formData.department}
+                onChange={handleInputChange}
+                required
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Engineering"
+              />
+            </div>
+          )}
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

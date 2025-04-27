@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaFileAlt, FaFileDownload, FaCalendarAlt } from 'react-icons/fa';
 import { useAdminAPI } from '../api/admin';
+import { useManagerAPI } from '../api/manager';
+import { useAuthStore } from '../store/authStore';
 import { useToast } from '../components/ui/Toast';
 
 type ReportType = 'attendance' | 'employees' | 'leaves' | 'performance';
@@ -14,7 +16,12 @@ interface ReportOption {
   availableFormats: string[];
 }
 
-const ReportsPage: React.FC = () => {
+interface ReportsPageProps {
+  departmentOnly?: boolean;
+}
+
+const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => {
+  const { department } = useAuthStore();
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [dateRange, setDateRange] = useState({
     startDate: '',
@@ -25,38 +32,49 @@ const ReportsPage: React.FC = () => {
   
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { generateReport } = useAdminAPI();
+  const { generateAttendanceReport } = useAdminAPI();
+  const { getDepartmentAttendanceReport } = useManagerAPI();
 
   const reportOptions: ReportOption[] = [
     {
       id: 'attendance',
-      name: 'Attendance Report',
-      description: 'Generate reports on employee attendance, including check-in/out times and overtime.',
+      name: departmentOnly ? `${department} Attendance Report` : 'Attendance Report',
+      description: departmentOnly
+        ? `Generate reports on ${department} department employee attendance.`
+        : 'Generate reports on employee attendance, including check-in/out times and overtime.',
       icon: <FaCalendarAlt className="text-blue-500 text-2xl" />,
       availableFormats: ['pdf', 'excel', 'csv']
     },
     {
       id: 'employees',
-      name: 'Employee Details Report',
-      description: 'Comprehensive report on all employee information and status.',
+      name: departmentOnly ? `${department} Employee Details` : 'Employee Details Report',
+      description: departmentOnly
+        ? `Comprehensive report on all ${department} department employee information.`
+        : 'Comprehensive report on all employee information and status.',
       icon: <FaFileAlt className="text-green-500 text-2xl" />,
       availableFormats: ['pdf', 'excel']
     },
     {
       id: 'leaves',
-      name: 'Leave Management Report',
-      description: 'Report on leave requests, approvals, and remaining leave balances.',
+      name: departmentOnly ? `${department} Leave Report` : 'Leave Management Report',
+      description: departmentOnly
+        ? `Report on leave requests and approvals for ${department} department.`
+        : 'Report on leave requests, approvals, and remaining leave balances.',
       icon: <FaFileAlt className="text-amber-500 text-2xl" />,
       availableFormats: ['pdf', 'excel', 'csv']
-    },
-    {
+    }
+  ];
+  
+  // Only show performance metrics for admin (not department managers)
+  if (!departmentOnly) {
+    reportOptions.push({
       id: 'performance',
       name: 'Performance Metrics',
       description: 'Employee performance data based on attendance and other metrics.',
       icon: <FaFileAlt className="text-purple-500 text-2xl" />,
       availableFormats: ['pdf', 'excel']
-    }
-  ];
+    });
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -88,13 +106,20 @@ const ReportsPage: React.FC = () => {
     setLoading(true);
     
     try {
-      // In a real implementation, call the API to generate the report
-      // await generateReport({
-      //   type: selectedReport,
-      //   startDate: dateRange.startDate,
-      //   endDate: dateRange.endDate,
-      //   format
-      // });
+      // In a real implementation, call the appropriate API based on department restriction
+      if (departmentOnly) {
+        // Call manager API for department-specific report
+        // await getDepartmentAttendanceReport(
+        //   dateRange.startDate,
+        //   dateRange.endDate
+        // );
+      } else {
+        // Call admin API for full report
+        // await generateAttendanceReport(
+        //   dateRange.startDate,
+        //   dateRange.endDate
+        // );
+      }
       
       // Mock successful generation with a delay
       setTimeout(() => {
