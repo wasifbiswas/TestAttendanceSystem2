@@ -602,7 +602,7 @@ const AdminDashboard = () => {
                       </div>
                       <div className="flex items-center mt-1">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {leave.type} Leave: {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
+                          {leave.type} Leave: {new Date(leave.start_date).toLocaleDateString('en-GB')} - {new Date(leave.end_date).toLocaleDateString('en-GB')}
                         </p>
                         {getLeaveTypeIcon(leave)}
                       </div>

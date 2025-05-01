@@ -169,7 +169,7 @@ const LeaveDetailModal = ({ isOpen, onClose, leaveId }: LeaveDetailModalProps) =
                         <div>
                           <span className="text-sm text-gray-500 dark:text-gray-400 block">Period</span>
                           <span className="font-medium text-gray-900 dark:text-white">
-                            {new Date(leaveDetails.start_date).toLocaleDateString()} - {new Date(leaveDetails.end_date).toLocaleDateString()}
+                            {new Date(leaveDetails.start_date).toLocaleDateString('en-GB')} - {new Date(leaveDetails.end_date).toLocaleDateString('en-GB')}
                           </span>
                         </div>
                         <div>
@@ -202,7 +202,6 @@ const LeaveDetailModal = ({ isOpen, onClose, leaveId }: LeaveDetailModalProps) =
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Leave Type</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Used</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Pending</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Remaining</th>
                           </tr>
                         </thead>
@@ -217,9 +216,6 @@ const LeaveDetailModal = ({ isOpen, onClose, leaveId }: LeaveDetailModalProps) =
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                                 {balance.used_leaves}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                                {balance.pending_leaves}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                                 {calculateRemainingBalance(balance.leave_type_id._id)}

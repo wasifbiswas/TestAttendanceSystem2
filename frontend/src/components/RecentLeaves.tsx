@@ -92,7 +92,7 @@ const RecentLeaves = ({ leaves, onSyncSuccess, onSyncError }: RecentLeavesProps)
                 <div>
                   <span className="block font-medium text-gray-900 dark:text-white">{getLeaveName(leave)}</span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
+                    {new Date(leave.start_date).toLocaleDateString('en-GB')} - {new Date(leave.end_date).toLocaleDateString('en-GB')}
                   </span>
                 </div>
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(leave.status)}`}>

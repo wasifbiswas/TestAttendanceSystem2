@@ -387,7 +387,7 @@ const DepartmentSchedule = () => {
                       {schedule.employeeName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      {new Date(schedule.date).toLocaleDateString()}
+                      {new Date(schedule.date).toLocaleDateString('en-GB')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getShiftColor(schedule.shift)}`}>
@@ -424,4 +424,4 @@ const DepartmentSchedule = () => {
   );
 };
 
-export default DepartmentSchedule; 
+export default DepartmentSchedule;

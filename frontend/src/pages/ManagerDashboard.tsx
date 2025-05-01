@@ -347,7 +347,7 @@ const ManagerDashboard = () => {
                   <div key={leave.id} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">{leave.userName}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{leave.type} Leave: {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{leave.type} Leave: {new Date(leave.startDate).toLocaleDateString('en-GB')} - {new Date(leave.endDate).toLocaleDateString('en-GB')}</p>
                       {leave.reason && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Reason: {leave.reason}</p>}
                     </div>
                     <div className="flex space-x-2">

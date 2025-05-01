@@ -364,11 +364,7 @@ const HolidayManagement = () => {
                       <tr key={holiday.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {new Date(holiday.date).toLocaleDateString(undefined, { 
-                              weekday: 'short',
-                              month: 'short', 
-                              day: 'numeric'
-                            })}
+                            {new Date(holiday.date).toLocaleDateString('en-GB')}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -408,4 +404,4 @@ const HolidayManagement = () => {
   );
 };
 
-export default HolidayManagement; 
+export default HolidayManagement;
