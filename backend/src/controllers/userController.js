@@ -86,12 +86,54 @@ export const getAttendanceSummary = asyncHandler(async (req, res) => {
         }
       });
 
-      // Get leave balance (in a real app, you would calculate this from the database)
+      // Get actual leave balances from the database
+      const LeaveBalance = mongoose.model("LeaveBalance");
+      const LeaveType = mongoose.model("LeaveType");
+
+      // Find leave types for Annual, Sick, and Casual leaves
+      const leaveTypes = await LeaveType.find({
+        leave_code: { $in: ["AL", "SL", "CL"] },
+      });
+
+      // Initialize default balance values
       const leaveBalance = {
-        annual: 20, // Default values
+        annual: 20,
         sick: 10,
         casual: 5,
       };
+
+      if (leaveTypes.length > 0) {
+        // Get all leave balances for this employee
+        const balances = await LeaveBalance.find({
+          emp_id: employee._id,
+          year: currentYear,
+        }).populate("leave_type_id");
+
+        console.log(`Found ${balances.length} leave balance records`);
+
+        // Update leave balance based on database values
+        for (const balance of balances) {
+          if (balance.leave_type_id) {
+            const code = balance.leave_type_id.leave_code;
+
+            const remaining =
+              balance.allocated_leaves +
+              balance.carried_forward -
+              balance.used_leaves -
+              balance.pending_leaves;
+
+            if (code === "AL") {
+              leaveBalance.annual = Math.max(0, remaining);
+            } else if (code === "SL") {
+              leaveBalance.sick = Math.max(0, remaining);
+            } else if (code === "CL") {
+              leaveBalance.casual = Math.max(0, remaining);
+            }
+          }
+        }
+
+        console.log("Calculated leave balance:", leaveBalance);
+      }
 
       // Return the summary
       res.json({

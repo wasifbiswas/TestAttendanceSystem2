@@ -218,14 +218,16 @@ const AdminDashboard = () => {
 
   const handleApproveLeave = async (leaveId: string) => {
     try {
-      await approveLeaveRequest(leaveId);
+      const response = await approveLeaveRequest(leaveId);
       setToast({
         visible: true,
-        message: 'Leave request approved successfully',
+        message: 'Leave request approved successfully. Leave balance updated.',
         type: 'success'
       });
       // Refresh the pending leave requests
       fetchPendingLeaveRequests();
+      // Refresh admin stats to update leave counts
+      fetchAdminStats();
     } catch (error) {
       console.error('Error approving leave request:', error);
       setToast({
@@ -246,6 +248,8 @@ const AdminDashboard = () => {
       });
       // Refresh the pending leave requests
       fetchPendingLeaveRequests();
+      // Refresh admin stats to update counts
+      fetchAdminStats();
     } catch (error) {
       console.error('Error denying leave request:', error);
       setToast({

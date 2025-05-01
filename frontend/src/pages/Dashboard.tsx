@@ -49,6 +49,38 @@ const Dashboard = () => {
   const [detailedLeaveBalances, setDetailedLeaveBalances] = useState<EmployeeLeaveBalance[]>([]);
   const [userGender, setUserGender] = useState<'MALE' | 'FEMALE' | null>(null);
 
+  // New state to track last data refresh time
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
+
+  // State to track previous leave status
+  const [previousLeaveStatuses, setPreviousLeaveStatuses] = useState<Record<string, string>>({});
+  
+  // Function to check if any leave status has changed from PENDING to APPROVED
+  const checkLeaveStatusChanges = (currentLeaves: LeaveRequest[]) => {
+    let statusChanged = false;
+    const newStatusMap: Record<string, string> = {};
+    
+    // Build status map and check for changes
+    currentLeaves.forEach(leave => {
+      newStatusMap[leave.id] = leave.status;
+      
+      // Check if this leave previously existed and status changed from PENDING to APPROVED
+      if (
+        previousLeaveStatuses[leave.id] && 
+        previousLeaveStatuses[leave.id] === 'PENDING' && 
+        leave.status === 'APPROVED'
+      ) {
+        statusChanged = true;
+        console.log(`Leave ${leave.id} status changed from PENDING to APPROVED`);
+      }
+    });
+    
+    // Update the status map for next comparison
+    setPreviousLeaveStatuses(newStatusMap);
+    
+    return statusChanged;
+  };
+
   // Determine user's gender based on profile info
   useEffect(() => {
     // If we have user gender in the profile or employee info, use it
@@ -102,7 +134,7 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    // Fetch attendance data and user leaves when component mounts
+    // Fetch attendance data and user leaves when component mounts or refresh is triggered
     const loadData = async () => {
       await fetchAttendanceSummary();
       await fetchUserLeaves();
@@ -119,7 +151,50 @@ const Dashboard = () => {
     };
     
     loadData();
+    
+    // Set up polling to refresh data every 30 seconds
+    const intervalId = setInterval(() => {
+      setLastRefreshTime(Date.now());
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(intervalId);
   }, [fetchAttendanceSummary, fetchUserLeaves, attendanceSummary?.employee_id]);
+
+  // Additional effect to handle data refreshes
+  useEffect(() => {
+    const refreshData = async () => {
+      if (!attendanceSummary?.employee_id) return;
+      
+      try {
+        // Refresh user leaves to get updated status
+        await fetchUserLeaves();
+        
+        // Refresh leave balances with fresh data
+        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+        setDetailedLeaveBalances(balances);
+      } catch (error) {
+        console.error('Error refreshing leave data:', error);
+      }
+    };
+    
+    refreshData();
+  }, [lastRefreshTime, attendanceSummary?.employee_id]);
+
+  // Effect to update leave balances whenever attendanceSummary changes
+  useEffect(() => {
+    const updateLeaveBalances = async () => {
+      if (attendanceSummary && attendanceSummary.employee_id) {
+        try {
+          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+          setDetailedLeaveBalances(balances);
+        } catch (error) {
+          console.error('Error fetching detailed leave balances:', error);
+        }
+      }
+    };
+    
+    updateLeaveBalances();
+  }, [attendanceSummary]);
 
   // Show toast notification for errors
   useEffect(() => {
@@ -143,6 +218,41 @@ const Dashboard = () => {
     }
   }, [lastCheckInOut]);
 
+  // Effect to monitor leave status changes
+  useEffect(() => {
+    if (!userLeaves || userLeaves.length === 0) return;
+    
+    // Check if any leave status changed from PENDING to APPROVED
+    const statusChanged = checkLeaveStatusChanges(userLeaves);
+    
+    // Force refresh leave balances on component mount or when leaves change
+    // This ensures we always have latest data, even if status didn't change
+    (async () => {
+      if (!attendanceSummary?.employee_id) return;
+      
+      try {
+        console.log('Refreshing leave balances due to leaves changes or refresh');
+        // Force a refetch of attendance summary to get updated stats
+        await fetchAttendanceSummary();
+        
+        // Explicitly fetch the latest leave balances with cache busting
+        const timestamp = new Date().getTime();
+        const freshBalances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+        setDetailedLeaveBalances(freshBalances);
+        
+        if (statusChanged) {
+          setToast({
+            visible: true,
+            message: 'Leave approved! Your leave balance has been updated.',
+            type: 'success'
+          });
+        }
+      } catch (error) {
+        console.error('Failed to refresh balances after leave changes:', error);
+      }
+    })();
+  }, [userLeaves, attendanceSummary?.employee_id]);
+
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
     visible: (i: number) => ({
@@ -155,19 +265,33 @@ const Dashboard = () => {
     }),
   };
 
+  // Enhanced check-in handler with leave balance refresh
   const handleCheckIn = async () => {
     try {
       await checkIn();
       await fetchAttendanceSummary(); // Refresh stats after check-in
+      
+      // Refresh leave balances after check-in (might affect certain types of leave)
+      if (attendanceSummary?.employee_id) {
+        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+        setDetailedLeaveBalances(balances);
+      }
     } catch (error) {
       // Error is already handled in the store
     }
   };
 
+  // Enhanced check-out handler with leave balance refresh
   const handleCheckOut = async () => {
     try {
       await checkOut();
       await fetchAttendanceSummary(); // Refresh stats after check-out
+      
+      // Refresh leave balances after check-out (might affect certain types of leave)
+      if (attendanceSummary?.employee_id) {
+        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+        setDetailedLeaveBalances(balances);
+      }
     } catch (error) {
       // Error is already handled in the store
     }
@@ -263,10 +387,23 @@ const Dashboard = () => {
 
   // Calculate the remaining balance for a leave type
   const calculateRemainingBalance = (leaveBalance: EmployeeLeaveBalance): number => {
-    return leaveBalance.allocated_leaves + 
+    // Add debug logging to see the actual values
+    const remaining = leaveBalance.allocated_leaves + 
            leaveBalance.carried_forward - 
            leaveBalance.used_leaves - 
            leaveBalance.pending_leaves;
+    
+    // Log detailed breakdown for AL (Annual Leave)
+    if (leaveBalance.leave_type_id.leave_code === 'AL') {
+      console.log(`Leave Balance (${leaveBalance.leave_type_id.leave_name}):`);
+      console.log(`- Allocated: ${leaveBalance.allocated_leaves}`);
+      console.log(`- Carried Forward: ${leaveBalance.carried_forward}`);
+      console.log(`- Used: ${leaveBalance.used_leaves}`);
+      console.log(`- Pending: ${leaveBalance.pending_leaves}`);
+      console.log(`= Remaining: ${remaining}`);
+    }
+    
+    return remaining;
   };
 
   // Filter leave balances based on gender for display
@@ -288,31 +425,55 @@ const Dashboard = () => {
 
   // Fallback to simple leave balance if detailed isn't available
   const renderSimpleLeaveBalance = () => {
+    // Use detailed leave balances if available
+    const annualLeave = detailedLeaveBalances.find(
+      balance => balance.leave_type_id.leave_code === 'AL'
+    );
+    const sickLeave = detailedLeaveBalances.find(
+      balance => balance.leave_type_id.leave_code === 'SL'
+    );
+    const casualLeave = detailedLeaveBalances.find(
+      balance => balance.leave_type_id.leave_code === 'CL'
+    );
+    
+    // Calculate remaining balances if available
+    const annualRemaining = annualLeave ? 
+      calculateRemainingBalance(annualLeave) : 
+      (attendanceSummary?.leaveBalance.annual || 0);
+    
+    const sickRemaining = sickLeave ? 
+      calculateRemainingBalance(sickLeave) : 
+      (attendanceSummary?.leaveBalance.sick || 0);
+    
+    const casualRemaining = casualLeave ? 
+      calculateRemainingBalance(casualLeave) : 
+      (attendanceSummary?.leaveBalance.casual || 0);
+    
     return (
       <div className="space-y-2 sm:space-y-3">
         <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
           <span className="text-sm sm:text-base text-white">Annual Leave</span>
           <span className="font-bold text-sm sm:text-base text-white">
-            {attendanceSummary?.leaveBalance.annual || 0} days
+            {annualRemaining} days
           </span>
         </div>
         <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
           <span className="text-sm sm:text-base text-white">Sick Leave</span>
           <span className="font-bold text-sm sm:text-base text-white">
-            {attendanceSummary?.leaveBalance.sick || 0} days
+            {sickRemaining} days
           </span>
         </div>
         <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
           <span className="text-sm sm:text-base text-white">Casual Leave</span>
           <span className="font-bold text-sm sm:text-base text-white">
-            {attendanceSummary?.leaveBalance.casual || 0} days
+            {casualRemaining} days
           </span>
         </div>
       </div>
     );
   };
 
-  // Detailed leave balance with gender-specific styling
+  // Detailed leave balance with gender-specific styling and animation
   const renderDetailedLeaveBalance = () => {
     const filteredBalances = getFilteredLeaveBalances();
     
@@ -327,7 +488,7 @@ const Dashboard = () => {
           const remaining = calculateRemainingBalance(balance);
           
           return (
-            <div 
+            <motion.div 
               key={balance._id} 
               className={`flex justify-between items-center backdrop-blur-sm p-2 sm:p-3 rounded-lg
                 ${genderType === 'FEMALE' 
@@ -335,6 +496,10 @@ const Dashboard = () => {
                   : genderType === 'MALE' 
                     ? 'bg-blue-500/20 border border-blue-400/30' 
                     : 'bg-white/20'}`}
+              initial={{ opacity: 0.8 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              whileHover={{ scale: 1.02 }}
             >
               <div className="flex items-center">
                 <span className="text-sm sm:text-base text-white">
@@ -342,10 +507,16 @@ const Dashboard = () => {
                 </span>
                 {getLeaveTypeIcon(balance)}
               </div>
-              <span className="font-bold text-sm sm:text-base text-white">
+              <motion.span 
+                className="font-bold text-sm sm:text-base text-white"
+                key={`${balance._id}-${remaining}`} // Forces re-render when value changes
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.3 }}
+              >
                 {remaining} days
-              </span>
-            </div>
+              </motion.span>
+            </motion.div>
           );
         })}
       </div>
@@ -542,15 +713,58 @@ const Dashboard = () => {
             <div className="p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center justify-between">
                 <span>Leave Balance</span>
-                {userGender && (
-                  <span className="text-xs font-normal bg-white/20 rounded-full px-2 py-1 flex items-center">
-                    {userGender === 'FEMALE' ? (
-                      <><FaVenus className="mr-1" /> Female</>
-                    ) : (
-                      <><FaMars className="mr-1" /> Male</>
-                    )}
-                  </span>
-                )}
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={async () => {
+                      if (attendanceSummary?.employee_id) {
+                        try {
+                          // Clear existing leave balances first
+                          setDetailedLeaveBalances([]);
+                          
+                          // Force immediate refresh of leave balances
+                          console.log('Forcing refresh of leave balances...');
+                          
+                          // Reset attendance store data
+                          await fetchAttendanceSummary();
+                          await fetchUserLeaves();
+                          
+                          // Add random param to completely bypass cache
+                          const randomParam = Math.floor(Math.random() * 1000000);
+                          const balances = await getEmployeeLeaveBalances(`${attendanceSummary.employee_id}?force=${randomParam}`);
+                          
+                          console.log('Received fresh leave balances:', balances);
+                          setDetailedLeaveBalances(balances);
+                          
+                          setToast({
+                            visible: true,
+                            message: 'Leave balances refreshed',
+                            type: 'success'
+                          });
+                        } catch (error) {
+                          console.error('Error refreshing leave balances:', error);
+                          setToast({
+                            visible: true,
+                            message: 'Failed to refresh leave balances',
+                            type: 'error'
+                          });
+                        }
+                      }
+                    }}
+                    className="text-xs font-normal bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center px-2 py-1"
+                    title="Force refresh leave balances"
+                  >
+                    <FaSync className="w-3 h-3 mr-1" /> Refresh Balances
+                  </button>
+                  {userGender && (
+                    <span className="text-xs font-normal bg-white/20 rounded-full px-2 py-1 flex items-center">
+                      {userGender === 'FEMALE' ? (
+                        <><FaVenus className="mr-1" /> Female</>
+                      ) : (
+                        <><FaMars className="mr-1" /> Male</>
+                      )}
+                    </span>
+                  )}
+                </div>
               </h3>
               {isLoading ? (
                 <div className="flex justify-center items-center h-32">

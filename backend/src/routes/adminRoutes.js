@@ -93,13 +93,66 @@ router.get("/leave-requests/pending", async (req, res) => {
 
 router.post("/leave-requests/:id/approve", async (req, res) => {
   try {
-    req.body.status = "APPROVED";
-    req.params.id = req.params.id;
+    console.log(`Admin attempting to approve leave request: ${req.params.id}`);
 
-    const result = await updateLeaveStatus(req, res);
-    return result;
+    req.body.status = "APPROVED";
+    const leaveId = req.params.id;
+
+    // Get models
+    const LeaveRequest = (await import("../models/LeaveRequest.js")).default;
+    const LeaveBalance = (await import("../models/LeaveBalance.js")).default;
+
+    // Get leave request details for logging
+    const leaveRequest = await LeaveRequest.findById(leaveId)
+      .populate("leave_type_id")
+      .populate("emp_id");
+
+    if (!leaveRequest) {
+      console.error(`Leave request not found: ${leaveId}`);
+      return res.status(404).json({ message: "Leave request not found" });
+    }
+
+    console.log(`Processing leave approval for leave ID: ${leaveId}`);
+    console.log(
+      `Leave details: Type=${leaveRequest.leave_type_id.leave_code}, Duration=${leaveRequest.duration} days`
+    );
+
+    // Call the controller function to update status which will handle balance updates
+    await updateLeaveStatus(req, res);
+
+    // Double-check if leave balances were updated correctly after the update
+    const currentYear = new Date().getFullYear();
+    const updatedBalance = await LeaveBalance.findOne({
+      emp_id: leaveRequest.emp_id._id,
+      leave_type_id: leaveRequest.leave_type_id._id,
+      year: currentYear,
+    }).populate("leave_type_id");
+
+    if (updatedBalance) {
+      console.log(
+        `After approval, final leave balance for ${updatedBalance.leave_type_id.leave_name}:`,
+        {
+          allocated: updatedBalance.allocated_leaves,
+          used: updatedBalance.used_leaves,
+          pending: updatedBalance.pending_leaves,
+          carried_forward: updatedBalance.carried_forward,
+          available:
+            updatedBalance.allocated_leaves +
+            updatedBalance.carried_forward -
+            updatedBalance.used_leaves -
+            updatedBalance.pending_leaves,
+        }
+      );
+    } else {
+      console.warn(
+        `Couldn't find leave balance after approval for verification.`
+      );
+    }
+
+    // Response has already been sent by updateLeaveStatus
   } catch (error) {
     console.error("Error approving leave request:", error);
+    console.error(error.stack);
     return res.status(500).json({ message: "Failed to approve leave request" });
   }
 });

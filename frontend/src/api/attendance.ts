@@ -172,7 +172,10 @@ export const requestLeave = async (leaveData: Omit<LeaveRequest, 'id' | 'userId'
 
 export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
   try {
-    const response = await api.get<AttendanceSummary>('/user/attendance/summary');
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    const response = await api.get<AttendanceSummary>(`/user/attendance/summary?_=${timestamp}`);
+    console.log('Retrieved attendance summary:', response.data);
     return response.data;
   } catch (error) {
     console.error('Get attendance summary error:', error);
@@ -182,7 +185,10 @@ export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
 
 export const getUserLeaves = async (): Promise<LeaveRequest[]> => {
   try {
-    const response = await api.get<LeaveRequest[]>('/user/leaves');
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    const response = await api.get<LeaveRequest[]>(`/user/leaves?_=${timestamp}`);
+    console.log('Retrieved user leaves:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching user leaves:', error);
@@ -309,7 +315,39 @@ export const getLeaveRequestDetails = async (leaveId: string): Promise<DetailedL
 // Get employee leave balances
 export const getEmployeeLeaveBalances = async (employeeId: string): Promise<EmployeeLeaveBalance[]> => {
   try {
-    const response = await api.get<EmployeeLeaveBalance[]>(`/leaves/balance/${employeeId}`);
+    // Add timestamp and random nonce to prevent caching at all levels
+    const timestamp = new Date().getTime();
+    const nonce = Math.random().toString(36).substring(2, 15);
+    
+    // Handle case where employeeId contains query parameters
+    let url = `/leaves/balance/${employeeId}`;
+    if (!url.includes('?')) {
+      url += `?_=${timestamp}&nonce=${nonce}`;
+    } else {
+      url += `&_=${timestamp}&nonce=${nonce}`;
+    }
+    
+    console.log('Fetching employee leave balances from URL:', url);
+    const response = await api.get<EmployeeLeaveBalance[]>(url);
+    
+    // Log the retrieved leave balances for debugging
+    console.log('Retrieved leave balances:', response.data);
+    
+    // Check specifically for Annual Leave (AL) to debug the issue
+    const annualLeave = response.data.find(b => b.leave_type_id?.leave_code === 'AL');
+    if (annualLeave) {
+      console.log('Annual Leave details:', {
+        allocated: annualLeave.allocated_leaves,
+        used: annualLeave.used_leaves,
+        pending: annualLeave.pending_leaves,
+        carried: annualLeave.carried_forward,
+        remaining: annualLeave.allocated_leaves + annualLeave.carried_forward - 
+                  annualLeave.used_leaves - annualLeave.pending_leaves
+      });
+    } else {
+      console.log('No Annual Leave record found in the response');
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching employee leave balances:', error);

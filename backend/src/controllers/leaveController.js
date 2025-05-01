@@ -408,7 +408,11 @@ export const cancelLeaveRequest = asyncHandler(async (req, res) => {
 export const updateLeaveStatus = asyncHandler(async (req, res) => {
   const { status, rejection_reason } = req.body;
 
-  const leaveRequest = await LeaveRequest.findById(req.params.id);
+  console.log(`Processing leave status update: ${req.params.id} to ${status}`);
+
+  const leaveRequest = await LeaveRequest.findById(req.params.id)
+    .populate("leave_type_id")
+    .populate("emp_id");
 
   if (!leaveRequest) {
     res.status(404);
@@ -421,24 +425,57 @@ export const updateLeaveStatus = asyncHandler(async (req, res) => {
     throw new AppError("Cannot modify already processed leave request", 400);
   }
 
-  // Update leave balance
+  // Update leave balance - CRITICAL SECTION
   const currentYear = new Date().getFullYear();
   const leaveBalance = await LeaveBalance.findOne({
-    emp_id: leaveRequest.emp_id,
-    leave_type_id: leaveRequest.leave_type_id,
+    emp_id: leaveRequest.emp_id._id,
+    leave_type_id: leaveRequest.leave_type_id._id,
     year: currentYear,
   });
 
   if (leaveBalance) {
+    console.log(
+      `Found leave balance for ${leaveRequest.leave_type_id.leave_name}:`,
+      {
+        allocated: leaveBalance.allocated_leaves,
+        used: leaveBalance.used_leaves,
+        pending: leaveBalance.pending_leaves,
+        carried_forward: leaveBalance.carried_forward,
+        duration: leaveRequest.duration,
+      }
+    );
+
     // Reduce pending leaves
     leaveBalance.pending_leaves -= leaveRequest.duration;
+
+    // Ensure no negative values
+    if (leaveBalance.pending_leaves < 0) leaveBalance.pending_leaves = 0;
 
     if (status === "APPROVED") {
       // Add to used leaves
       leaveBalance.used_leaves += leaveRequest.duration;
+      console.log(
+        `Approved leave: Decreasing pending by ${leaveRequest.duration}, increasing used by ${leaveRequest.duration}`
+      );
+    } else {
+      console.log(
+        `Rejected leave: Decreasing pending by ${leaveRequest.duration} only`
+      );
     }
 
+    // CRITICAL: Save the balance changes
     await leaveBalance.save();
+
+    console.log(`Updated leave balance:`, {
+      allocated: leaveBalance.allocated_leaves,
+      used: leaveBalance.used_leaves,
+      pending: leaveBalance.pending_leaves,
+      carried_forward: leaveBalance.carried_forward,
+    });
+  } else {
+    console.warn(
+      `No leave balance found for employee ${leaveRequest.emp_id._id} and leave type ${leaveRequest.leave_type_id._id}`
+    );
   }
 
   // Update leave request
@@ -450,6 +487,8 @@ export const updateLeaveStatus = asyncHandler(async (req, res) => {
   leaveRequest.last_modified = new Date();
 
   const updatedLeaveRequest = await leaveRequest.save();
+
+  console.log(`Leave request ${leaveRequest._id} updated to ${status}`);
 
   // If approved, create attendance records for the leave period
   if (status === "APPROVED") {
@@ -466,7 +505,7 @@ export const updateLeaveStatus = asyncHandler(async (req, res) => {
 
       // Check if an attendance record already exists for this day
       const existingAttendance = await Attendance.findOne({
-        emp_id: leaveRequest.emp_id,
+        emp_id: leaveRequest.emp_id._id,
         attendance_date: {
           $gte: dayBoundary.startOfDay,
           $lte: dayBoundary.endOfDay,
@@ -482,7 +521,7 @@ export const updateLeaveStatus = asyncHandler(async (req, res) => {
       } else {
         // Create new attendance record
         await Attendance.create({
-          emp_id: leaveRequest.emp_id,
+          emp_id: leaveRequest.emp_id._id,
           attendance_date: new Date(currentDate),
           status: "LEAVE",
           is_leave: true,
@@ -490,6 +529,8 @@ export const updateLeaveStatus = asyncHandler(async (req, res) => {
         });
       }
     }
+
+    console.log(`Created/updated attendance records for leave period`);
   }
 
   res.json(updatedLeaveRequest);

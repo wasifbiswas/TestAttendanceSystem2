@@ -217,10 +217,38 @@ export const getSystemStats = asyncHandler(async (req, res) => {
     status: "ABSENT",
   });
 
-  const onLeaveToday = await Attendance.countDocuments({
+  // Get employees who are on leave today via attendance records
+  const onLeaveAttendance = await Attendance.countDocuments({
     attendance_date: { $gte: today, $lt: tomorrow },
     status: "LEAVE",
   });
+
+  // Get employees who have approved leave requests that include today
+  // This catches employees who might not have an attendance record but are on approved leave
+  const onLeaveRequests = await LeaveRequest.countDocuments({
+    start_date: { $lte: today },
+    end_date: { $gte: today },
+    status: "APPROVED",
+  });
+
+  // Calculate total on leave - use a Set to avoid double counting
+  const leaveAttendanceIds = await Attendance.find({
+    attendance_date: { $gte: today, $lt: tomorrow },
+    status: "LEAVE",
+  }).distinct("emp_id");
+
+  const leaveRequestIds = await LeaveRequest.find({
+    start_date: { $lte: today },
+    end_date: { $gte: today },
+    status: "APPROVED",
+  }).distinct("emp_id");
+
+  // Combine the two sets of IDs and count unique employees on leave
+  const onLeaveEmployeeIds = new Set([
+    ...leaveAttendanceIds,
+    ...leaveRequestIds,
+  ]);
+  const onLeaveToday = onLeaveEmployeeIds.size;
 
   // Get pending leave requests
   const pendingLeaveRequests = await LeaveRequest.countDocuments({
