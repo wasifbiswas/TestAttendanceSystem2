@@ -13,7 +13,7 @@ import {
   getUserRoleCounts
 } from '../api/admin';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars, FaBriefcase, FaBuilding, FaUsersCog } from 'react-icons/fa';
 import LeaveDetailModal from '../components/admin/LeaveDetailModal';
 import { hasDateChangedInIndianTimezone, getStartOfDayTimestampInIndianTimezone } from '../utils/dateUtils';
 
@@ -635,7 +635,10 @@ const AdminDashboard = () => {
           className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden"
         >
           <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Department Overview</h3>
+            <div className="flex items-center">
+              <FaBuilding className="h-5 w-5 text-blue-500 mr-2" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Department Overview</h3>
+            </div>
             <button 
               onClick={() => fetchDepartmentStats()}
               className="text-blue-500 hover:text-blue-600 text-sm flex items-center"
@@ -647,7 +650,7 @@ const AdminDashboard = () => {
             </button>
           </div>
           <div className="p-6">
-            <div className="overflow-y-auto max-h-60 custom-scrollbar">
+            <div className="overflow-y-auto max-h-80 custom-scrollbar">
               {isLoading ? (
                 <div className="flex justify-center items-center p-8">
                   <BiLoaderAlt className="animate-spin text-blue-500 text-3xl" />
