@@ -15,8 +15,15 @@ export const registerUser = asyncHandler(async (req, res) => {
       JSON.stringify(req.body, null, 2)
     );
 
-    const { username, email, password, full_name, contact_number, department, gender } =
-      req.body;
+    const {
+      username,
+      email,
+      password,
+      full_name,
+      contact_number,
+      department,
+      gender,
+    } = req.body;
 
     // Log request info for debugging
     console.log(`Attempting to register user: ${username}, email: ${email}`);
