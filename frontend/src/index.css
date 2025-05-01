@@ -178,6 +178,20 @@
     display: none;
   }
 
+  /* Refresh button animation */
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .refresh-spin {
+    display: inline-block;
+  }
+
+  .refresh-spin.active {
+    animation: spin 1s linear;
+  }
+
   /* Stylish scrollbar for modal content */
   .modal-content::-webkit-scrollbar {
     width: 6px;

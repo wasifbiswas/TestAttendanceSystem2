@@ -38,6 +38,9 @@ const ManagerDashboard = () => {
     type: 'info' as 'success' | 'error' | 'info' 
   });
   const { getDepartmentStats: useDepartmentStats } = useManagerAPI();
+  const [refreshingStats, setRefreshingStats] = useState(false);
+  const [refreshingLeaves, setRefreshingLeaves] = useState(false);
+  const [refreshingEmployees, setRefreshingEmployees] = useState(false);
 
   useEffect(() => {
     // Check if user is manager, redirect to regular dashboard if not
@@ -53,6 +56,7 @@ const ManagerDashboard = () => {
   }, [isManager, navigate]);
 
   const fetchDepartmentStats = async () => {
+    setRefreshingStats(true);
     try {
       const data = await useDepartmentStats();
       setStats(data);
@@ -65,24 +69,31 @@ const ManagerDashboard = () => {
       });
     } finally {
       setIsLoading(false);
+      setTimeout(() => setRefreshingStats(false), 1000);
     }
   };
 
   const fetchDepartmentLeaveRequests = async () => {
+    setRefreshingLeaves(true);
     try {
       const data = await getDepartmentLeaveRequests();
       setPendingLeaves(data);
     } catch (error) {
       console.error('Error fetching department leave requests:', error);
+    } finally {
+      setTimeout(() => setRefreshingLeaves(false), 1000);
     }
   };
 
   const fetchDepartmentEmployees = async () => {
+    setRefreshingEmployees(true);
     try {
       const data = await getDepartmentEmployees();
       setDepartmentEmployees(data);
     } catch (error) {
       console.error('Error fetching department employees:', error);
+    } finally {
+      setTimeout(() => setRefreshingEmployees(false), 1000);
     }
   };
 
@@ -316,8 +327,18 @@ const ManagerDashboard = () => {
           variants={fadeIn}
           className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden"
         >
-          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Pending Leave Requests</h3>
+            <button 
+              onClick={() => fetchDepartmentLeaveRequests()}
+              className="text-blue-500 hover:text-blue-600 text-sm flex items-center"
+              disabled={refreshingLeaves}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-1 refresh-spin ${refreshingLeaves ? 'active' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
           </div>
           <div className="p-6">
             {pendingLeaves.length > 0 ? (
@@ -361,8 +382,18 @@ const ManagerDashboard = () => {
           variants={fadeIn}
           className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden"
         >
-          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Department Employees</h3>
+            <button 
+              onClick={() => fetchDepartmentEmployees()}
+              className="text-blue-500 hover:text-blue-600 text-sm flex items-center"
+              disabled={refreshingEmployees}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-1 refresh-spin ${refreshingEmployees ? 'active' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
           </div>
           <div className="p-6">
             <div className="overflow-hidden">

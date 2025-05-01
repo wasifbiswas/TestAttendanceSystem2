@@ -52,6 +52,9 @@ const AdminDashboard = () => {
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
   // State to track if attendance has been reset for the day
   const [attendanceResetForToday, setAttendanceResetForToday] = useState(false);
+  const [refreshingStats, setRefreshingStats] = useState(false);
+  const [refreshingDeptStats, setRefreshingDeptStats] = useState(false);
+  const [refreshingRoleCounts, setRefreshingRoleCounts] = useState(false);
 
   const { getAdminStats: useAdminStats } = useAdminAPI();
 
@@ -94,6 +97,7 @@ const AdminDashboard = () => {
   }, [isAdmin, navigate]);
 
   const fetchAdminStats = async () => {
+    setRefreshingStats(true);
     try {
       const data = await useAdminStats();
       
@@ -124,6 +128,7 @@ const AdminDashboard = () => {
       });
     } finally {
       setIsLoading(false);
+      setTimeout(() => setRefreshingStats(false), 1000);
     }
   };
 
@@ -202,20 +207,26 @@ const AdminDashboard = () => {
   };
 
   const fetchDepartmentStats = async () => {
+    setRefreshingDeptStats(true);
     try {
       const data = await getDepartmentStats();
       setDepartmentStats(data);
     } catch (error) {
       console.error('Error fetching department stats:', error);
+    } finally {
+      setTimeout(() => setRefreshingDeptStats(false), 1000);
     }
   };
 
   const fetchRoleCounts = async () => {
+    setRefreshingRoleCounts(true);
     try {
       const data = await getUserRoleCounts();
       setRoleCounts(data);
     } catch (error) {
       console.error('Error fetching role counts:', error);
+    } finally {
+      setTimeout(() => setRefreshingRoleCounts(false), 1000);
     }
   };
 
@@ -499,8 +510,9 @@ const AdminDashboard = () => {
           <button 
             onClick={() => fetchRoleCounts()}
             className="text-blue-500 hover:text-blue-600 text-sm flex items-center"
+            disabled={refreshingRoleCounts}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-1 refresh-spin ${refreshingRoleCounts ? 'active' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Refresh
@@ -642,8 +654,9 @@ const AdminDashboard = () => {
             <button 
               onClick={() => fetchDepartmentStats()}
               className="text-blue-500 hover:text-blue-600 text-sm flex items-center"
+              disabled={refreshingDeptStats}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-1 refresh-spin ${refreshingDeptStats ? 'active' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh
@@ -700,8 +713,12 @@ const AdminDashboard = () => {
                   <p className="text-gray-500 dark:text-gray-400">No departments found</p>
                   <button 
                     onClick={() => fetchDepartmentStats()}
-                    className="mt-2 px-3 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
+                    className="mt-2 px-3 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors flex items-center"
+                    disabled={refreshingDeptStats}
                   >
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-1 refresh-spin ${refreshingDeptStats ? 'active' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
                     Refresh Departments
                   </button>
                 </div>

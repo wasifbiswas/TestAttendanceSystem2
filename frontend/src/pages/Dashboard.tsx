@@ -55,6 +55,9 @@ const Dashboard = () => {
   // State to track previous leave status
   const [previousLeaveStatuses, setPreviousLeaveStatuses] = useState<Record<string, string>>({});
   
+  // Add a new state for tracking refresh animation
+  const [refreshingBalances, setRefreshingBalances] = useState(false);
+  
   // Function to check if any leave status has changed from PENDING to APPROVED
   const checkLeaveStatusChanges = (currentLeaves: LeaveRequest[]) => {
     let statusChanged = false;
@@ -721,6 +724,9 @@ const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMAL
                     onClick={async () => {
                       if (attendanceSummary?.employee_id) {
                         try {
+                          // Set refreshing state to trigger animation
+                          setRefreshingBalances(true);
+                          
                           // Clear existing leave balances first
                           setDetailedLeaveBalances([]);
                           
@@ -750,13 +756,17 @@ const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMAL
                             message: 'Failed to refresh leave balances',
                             type: 'error'
                           });
+                        } finally {
+                          // Set timeout to let animation complete
+                          setTimeout(() => setRefreshingBalances(false), 1000);
                         }
                       }
                     }}
                     className="text-xs font-normal bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center px-2 py-1"
                     title="Force refresh leave balances"
+                    disabled={refreshingBalances}
                   >
-                    <FaSync className="w-3 h-3 mr-1" /> Refresh Balances
+                    <FaSync className={`w-3 h-3 mr-1 refresh-spin ${refreshingBalances ? 'active' : ''}`} /> Refresh Balances
                   </button>
                   {userGender && (
                     <span className="text-xs font-normal bg-white/20 rounded-full px-2 py-1 flex items-center">
