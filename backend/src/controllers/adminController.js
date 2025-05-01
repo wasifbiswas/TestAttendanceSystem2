@@ -259,26 +259,30 @@ export const getSystemStats = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 export const getUserRoleCounts = asyncHandler(async (req, res) => {
   // Find role IDs for employee, manager, and admin roles
-  const employeeRole = await Role.findOne({ role_name: 'EMPLOYEE' });
-  const managerRole = await Role.findOne({ role_name: 'MANAGER' });
-  const adminRole = await Role.findOne({ role_name: 'ADMIN' });
+  const employeeRole = await Role.findOne({ role_name: "EMPLOYEE" });
+  const managerRole = await Role.findOne({ role_name: "MANAGER" });
+  const adminRole = await Role.findOne({ role_name: "ADMIN" });
 
   // Initialize result object
   const result = {
     employees: { count: 0, ids: [] },
     managers: { count: 0, ids: [] },
-    admins: { count: 0, ids: [] }
+    admins: { count: 0, ids: [] },
   };
 
   // If roles exist, get users with these roles
   if (employeeRole) {
-    const employeeUserRoles = await UserRole.find({ role_id: employeeRole._id }).populate('user_id', '-password_hash');
+    const employeeUserRoles = await UserRole.find({
+      role_id: employeeRole._id,
+    }).populate("user_id", "-password_hash");
     result.employees.count = employeeUserRoles.length;
-    
+
     // Get employee IDs (use employee code if available)
     for (const userRole of employeeUserRoles) {
       if (userRole.user_id) {
-        const employee = await Employee.findOne({ user_id: userRole.user_id._id });
+        const employee = await Employee.findOne({
+          user_id: userRole.user_id._id,
+        });
         if (employee && employee.employee_code) {
           result.employees.ids.push(employee.employee_code);
         } else {
@@ -289,13 +293,17 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
   }
 
   if (managerRole) {
-    const managerUserRoles = await UserRole.find({ role_id: managerRole._id }).populate('user_id', '-password_hash');
+    const managerUserRoles = await UserRole.find({
+      role_id: managerRole._id,
+    }).populate("user_id", "-password_hash");
     result.managers.count = managerUserRoles.length;
-    
+
     // Get manager IDs (use employee code if available)
     for (const userRole of managerUserRoles) {
       if (userRole.user_id) {
-        const employee = await Employee.findOne({ user_id: userRole.user_id._id });
+        const employee = await Employee.findOne({
+          user_id: userRole.user_id._id,
+        });
         if (employee && employee.employee_code) {
           result.managers.ids.push(employee.employee_code);
         } else {
@@ -306,13 +314,17 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
   }
 
   if (adminRole) {
-    const adminUserRoles = await UserRole.find({ role_id: adminRole._id }).populate('user_id', '-password_hash');
+    const adminUserRoles = await UserRole.find({
+      role_id: adminRole._id,
+    }).populate("user_id", "-password_hash");
     result.admins.count = adminUserRoles.length;
-    
+
     // Get admin IDs (use employee code if available)
     for (const userRole of adminUserRoles) {
       if (userRole.user_id) {
-        const employee = await Employee.findOne({ user_id: userRole.user_id._id });
+        const employee = await Employee.findOne({
+          user_id: userRole.user_id._id,
+        });
         if (employee && employee.employee_code) {
           result.admins.ids.push(employee.employee_code);
         } else {
