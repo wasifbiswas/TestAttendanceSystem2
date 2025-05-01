@@ -10,6 +10,11 @@ const GENDER_SPECIFIC_LEAVES = {
   MALE: ['PL', 'PATERNITY'],   // Paternity leave codes
 };
 
+// Helper function to check exact leave code match
+const exactCodeMatch = (code: string, patterns: string[]): boolean => {
+  return patterns.some(pattern => pattern === code);
+};
+
 interface LeaveRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -64,14 +69,14 @@ const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps
     
     // Check for female-specific leaves
     if (GENDER_SPECIFIC_LEAVES.FEMALE.some(c => 
-        code.includes(c) || 
+        exactCodeMatch(code, GENDER_SPECIFIC_LEAVES.FEMALE) || 
         name.toUpperCase().includes('MATERNITY'))) {
       return 'FEMALE';
     }
     
     // Check for male-specific leaves
     if (GENDER_SPECIFIC_LEAVES.MALE.some(c => 
-        code.includes(c) || 
+        exactCodeMatch(code, GENDER_SPECIFIC_LEAVES.MALE) || 
         name.toUpperCase().includes('PATERNITY'))) {
       return 'MALE';
     }

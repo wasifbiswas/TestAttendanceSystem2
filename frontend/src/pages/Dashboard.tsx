@@ -98,29 +98,32 @@ const Dashboard = () => {
     }
   }, [user]);
 
-  // Helper function to determine if a leave type is gender-specific
-  const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMALE' | null => {
-    if (!leaveBalance?.leave_type_id) return null;
-    
-    const code = leaveBalance.leave_type_id.leave_code || '';
-    const name = leaveBalance.leave_type_id.leave_name || '';
-    
-    // Check for female-specific leaves
-    if (GENDER_SPECIFIC_LEAVES.FEMALE.some(c => 
-        code.includes(c) || 
-        name.toUpperCase().includes('MATERNITY'))) {
-      return 'FEMALE';
-    }
-    
-    // Check for male-specific leaves
-    if (GENDER_SPECIFIC_LEAVES.MALE.some(c => 
-        code.includes(c) || 
-        name.toUpperCase().includes('PATERNITY'))) {
-      return 'MALE';
-    }
-    
-    return null;
-  };
+// Helper function to check exact leave code match
+const exactCodeMatch = (code: string, patterns: string[]): boolean => {
+  return patterns.some(pattern => pattern === code);
+};
+
+// Helper function to determine if a leave type is gender-specific
+const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMALE' | null => {
+  if (!leaveBalance?.leave_type_id) return null;
+  
+  const code = leaveBalance.leave_type_id.leave_code || '';
+  const name = leaveBalance.leave_type_id.leave_name || '';
+  
+  // Check for female-specific leaves with exact code matching
+  if (exactCodeMatch(code, GENDER_SPECIFIC_LEAVES.FEMALE) || 
+      name.toUpperCase().includes('MATERNITY')) {
+    return 'FEMALE';
+  }
+  
+  // Check for male-specific leaves with exact code matching
+  if (exactCodeMatch(code, GENDER_SPECIFIC_LEAVES.MALE) || 
+      name.toUpperCase().includes('PATERNITY')) {
+    return 'MALE';
+  }
+  
+  return null;
+};
 
   // Get gender icon for leave balance
   const getLeaveTypeIcon = (leaveBalance: EmployeeLeaveBalance) => {

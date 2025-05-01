@@ -127,22 +127,25 @@ const AdminDashboard = () => {
     }
   };
 
+  // Helper function to check exact leave code match
+  const exactCodeMatch = (code: string, patterns: string[]): boolean => {
+    return patterns.some(pattern => pattern === code);
+  };
+
   // Helper function to determine if a leave type is gender-specific
   const getLeaveGenderType = (leave: any): 'MALE' | 'FEMALE' | null => {
     const leaveTypeCode = leave.leave_type_id?.leave_code || '';
     const leaveTypeName = leave.leave_type_id?.leave_name || leave.type || '';
     
-    // Check for female-specific leaves
-    if (GENDER_SPECIFIC_LEAVES.FEMALE.some(code => 
-        leaveTypeCode.includes(code) || 
-        leaveTypeName.toUpperCase().includes('MATERNITY'))) {
+    // Check for female-specific leaves with exact code matching
+    if (exactCodeMatch(leaveTypeCode, GENDER_SPECIFIC_LEAVES.FEMALE) || 
+        leaveTypeName.toUpperCase().includes('MATERNITY')) {
       return 'FEMALE';
     }
     
-    // Check for male-specific leaves
-    if (GENDER_SPECIFIC_LEAVES.MALE.some(code => 
-        leaveTypeCode.includes(code) || 
-        leaveTypeName.toUpperCase().includes('PATERNITY'))) {
+    // Check for male-specific leaves with exact code matching
+    if (exactCodeMatch(leaveTypeCode, GENDER_SPECIFIC_LEAVES.MALE) || 
+        leaveTypeName.toUpperCase().includes('PATERNITY')) {
       return 'MALE';
     }
     
