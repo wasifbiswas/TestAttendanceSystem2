@@ -23,6 +23,11 @@ interface Role {
 
 interface UserWithRoles extends User {
   assignedRoles: string[];
+  employee?: {
+    department?: string | { dept_name: string };
+    designation?: string;
+    employee_code?: string;
+  };
 }
 
 const UserManagement = () => {
@@ -53,6 +58,24 @@ const UserManagement = () => {
     fetchData();
   }, [isAdmin, navigate]);
 
+  const fetchUserDetails = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user details');
+      }
+      const data = await response.json();
+      return {
+        employee: data.employee
+      };
+    } catch (error) {
+      console.error(`Error fetching details for user ${userId}:`, error);
+      return {
+        employee: null
+      };
+    }
+  };
+
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -61,20 +84,26 @@ const UserManagement = () => {
         getRoles()
       ]);
       
-      // Fetch roles for each user
+      // Fetch roles and employee info for each user
       const usersWithRoles = await Promise.all(
         usersData.map(async (user) => {
           try {
-            const userRoles = await getUserRoles(user._id);
+            const [userRoles, userDetails] = await Promise.all([
+              getUserRoles(user._id),
+              fetchUserDetails(user._id)
+            ]);
+            
             return {
               ...user,
-              assignedRoles: userRoles
+              assignedRoles: userRoles,
+              employee: userDetails?.employee
             };
           } catch (error) {
-            console.error(`Error fetching roles for user ${user._id}:`, error);
+            console.error(`Error fetching data for user ${user._id}:`, error);
             return {
               ...user,
-              assignedRoles: []
+              assignedRoles: [],
+              employee: null
             };
           }
         })
@@ -289,7 +318,6 @@ const UserManagement = () => {
                           onClick={() => {
                             setActionType('remove');
                             setSelectedRole(roleId);
-                            handleRemoveRole(selectedUserData._id, roleId);
                           }}
                           className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                         >
@@ -344,6 +372,14 @@ const UserManagement = () => {
                   Assign Role
                 </button>
               )}
+              {selectedRole && actionType === 'remove' && (
+                <button
+                  onClick={() => handleRemoveRole(selectedUserData._id, selectedRole)}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Remove Role
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -360,6 +396,9 @@ const UserManagement = () => {
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Email
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Department
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Roles
@@ -387,11 +426,26 @@ const UserManagement = () => {
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       @{user.username}
+                      {user.employee?.employee_code && <span className="ml-1 text-xs">({user.employee.employee_code})</span>}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       {user.email}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {typeof user.employee?.department === 'object' && user.employee.department?.dept_name
+                        ? user.employee.department.dept_name
+                        : typeof user.employee?.department === 'string'
+                          ? user.employee.department
+                          : "Not Assigned"}
+                      {user.employee?.designation && 
+                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {user.employee.designation}
+                        </div>
+                      }
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -450,4 +504,4 @@ const UserManagement = () => {
   );
 };
 
-export default UserManagement; 
+export default UserManagement;

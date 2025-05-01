@@ -545,7 +545,11 @@ const AdminDashboard = () => {
           </div>
           <div className="p-6">
             <div className="overflow-y-auto max-h-60 custom-scrollbar">
-              {departmentStats.length > 0 ? (
+              {isLoading ? (
+                <div className="flex justify-center items-center p-8">
+                  <BiLoaderAlt className="animate-spin text-blue-500 text-3xl" />
+                </div>
+              ) : departmentStats.length > 0 ? (
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
                     <tr>

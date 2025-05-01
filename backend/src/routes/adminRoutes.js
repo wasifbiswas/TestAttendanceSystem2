@@ -119,16 +119,33 @@ router.post("/leave-requests/:id/deny", async (req, res) => {
 
 // Department statistics
 router.get("/departments/stats", async (req, res) => {
-  // This route is already called from the frontend but not implemented on the backend
-  // Return a simple response for now
-  const departments = [
-    { department: "Engineering", employeeCount: 12 },
-    { department: "Marketing", employeeCount: 6 },
-    { department: "HR", employeeCount: 4 },
-    { department: "Finance", employeeCount: 5 },
-  ];
+  try {
+    const Department = (await import("../models/Department.js")).default;
+    const Employee = (await import("../models/Employee.js")).default;
 
-  res.json(departments);
+    // Get all departments
+    const departments = await Department.find({});
+
+    // Calculate employee counts for each department
+    const departmentStats = await Promise.all(
+      departments.map(async (dept) => {
+        const employeeCount = await Employee.countDocuments({
+          dept_id: dept._id,
+        });
+
+        return {
+          department: dept.dept_name,
+          employeeCount: employeeCount,
+          departmentId: dept._id.toString(),
+        };
+      })
+    );
+
+    res.json(departmentStats);
+  } catch (error) {
+    console.error("Error fetching department statistics:", error);
+    res.status(500).json({ message: "Failed to fetch department statistics" });
+  }
 });
 
 export default router;

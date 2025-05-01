@@ -2,9 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { FaArrowLeft, FaCalendarAlt, FaFileDownload, FaFilter } from 'react-icons/fa';
-import { AttendanceFilter, AttendanceRecord, getAttendanceLogs } from '../api/attendance';
+import { 
+  AttendanceFilter, 
+  AttendanceRecord, 
+  getAttendanceLogs, 
+  getAttendanceSummary,
+  getEmployeeAttendanceLogs 
+} from '../api/attendance';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays } from 'date-fns';
 
 const AttendanceLogs: React.FC = () => {
   const navigate = useNavigate();
@@ -18,7 +24,7 @@ const AttendanceLogs: React.FC = () => {
   // Filters
   const [filters, setFilters] = useState<AttendanceFilter>({
     startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0], // default to last 30 days
-    endDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0], // Today's date
     status: '',
     employeeId: '',
     departmentId: ''
@@ -45,9 +51,21 @@ const AttendanceLogs: React.FC = () => {
     try {
       let records: AttendanceRecord[] = [];
       
+      // Ensure endDate includes today with time at end of day
+      // This ensures we include any records from today
+      const endDateObj = new Date(filters.endDate || new Date());
+      const adjustedEndDate = addDays(endDateObj, 1).toISOString().split('T')[0]; // Include next day to capture all of today
+      
+      const adjustedFilters = {
+        ...filters,
+        endDate: adjustedEndDate
+      };
+      
+      console.log('Fetching attendance with filters:', adjustedFilters);
+      
       if (isAdmin) {
         // Admin can see all attendance logs with filters
-        records = await getAttendanceLogs(filters);
+        records = await getAttendanceLogs(adjustedFilters);
       } else if (isManager) {
         // Manager can see department attendance with filters
         // For managers, we need to determine their department
@@ -63,26 +81,38 @@ const AttendanceLogs: React.FC = () => {
         }
         
         records = await getAttendanceLogs({
-          ...filters,
+          ...adjustedFilters,
           departmentId
         });
       } else {
         // Regular users can only see their own attendance
-        // This assumes the API provides a way to get attendance for the logged-in user
         try {
-          // Fetch user's own attendance records
-          records = await getAttendanceLogs({
-            ...filters,
-            employeeId: user?._id
+          // First get the user's employee profile to get the employee ID
+          const summary = await getAttendanceSummary();
+          
+          if (!summary || !summary.employee_id) {
+            throw new Error("Employee profile not found. Please contact HR to set up your profile.");
+          }
+          
+          // Now use the employee ID to fetch attendance records
+          records = await getEmployeeAttendanceLogs(summary.employee_id, {
+            startDate: adjustedFilters.startDate,
+            endDate: adjustedFilters.endDate,
+            status: adjustedFilters.status
           });
-        } catch (fetchError) {
+        } catch (fetchError: any) {
           console.error("Error fetching user attendance:", fetchError);
-          throw new Error("Failed to fetch your attendance records. Please contact support.");
+          throw new Error(fetchError.message || "Failed to fetch your attendance records. Please contact support.");
         }
       }
       
       setAttendanceRecords(records);
       setCurrentPage(1); // Reset to first page when data changes
+      
+      console.log('Fetched attendance records:', records.length);
+      if (records.length === 0) {
+        console.log('No records found for the selected date range');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load attendance logs');
     } finally {
@@ -90,6 +120,8 @@ const AttendanceLogs: React.FC = () => {
     }
   };
 
+  // Rest of the code remains unchanged
+  
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -134,6 +166,7 @@ const AttendanceLogs: React.FC = () => {
   };
 
   return (
+    // Rest of the component remains unchanged
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center mb-6">
         <button
