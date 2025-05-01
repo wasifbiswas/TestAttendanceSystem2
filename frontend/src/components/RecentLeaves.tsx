@@ -9,6 +9,11 @@ interface LeaveRequest {
   reason: string;
   type: string;
   status: string;
+  leave_type_id?: {
+    _id: string;
+    leave_name: string;
+    leave_code?: string;
+  };
 }
 
 interface RecentLeavesProps {
@@ -53,6 +58,16 @@ const RecentLeaves = ({ leaves, onSyncSuccess, onSyncError }: RecentLeavesProps)
     }
   };
 
+  // Helper function to get the leave name
+  const getLeaveName = (leave: LeaveRequest) => {
+    // If leave_type_id with leave_name exists, use that
+    if (leave.leave_type_id && leave.leave_type_id.leave_name) {
+      return leave.leave_type_id.leave_name;
+    }
+    // Otherwise fall back to the type property
+    return leave.type ? `${leave.type} Leave` : 'Leave';
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -75,7 +90,7 @@ const RecentLeaves = ({ leaves, onSyncSuccess, onSyncError }: RecentLeavesProps)
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <span className="block font-medium text-gray-900 dark:text-white">{leave.type} Leave</span>
+                  <span className="block font-medium text-gray-900 dark:text-white">{getLeaveName(leave)}</span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
                   </span>
@@ -103,4 +118,4 @@ const RecentLeaves = ({ leaves, onSyncSuccess, onSyncError }: RecentLeavesProps)
   );
 };
 
-export default RecentLeaves; 
+export default RecentLeaves;

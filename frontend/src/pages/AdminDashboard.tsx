@@ -5,7 +5,6 @@ import { useAuthStore } from '../store/authStore';
 import Toast from '../components/Toast';
 import { AdminStats } from '../types';
 import { 
-  getAdminStats, 
   getPendingLeaveRequests, 
   approveLeaveRequest, 
   denyLeaveRequest,
@@ -16,8 +15,10 @@ import {
 import { BiLoaderAlt } from 'react-icons/bi';
 import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield } from 'react-icons/fa';
 import LeaveDetailModal from '../components/admin/LeaveDetailModal';
+import { hasDateChangedInIndianTimezone, getStartOfDayTimestampInIndianTimezone } from '../utils/dateUtils';
 
-// Removed mock admin data
+// Key for storing the last check date in localStorage
+const LAST_ATTENDANCE_CHECK_KEY = 'admin_last_attendance_check';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -43,6 +44,8 @@ const AdminDashboard = () => {
   // State variables for leave detail modal
   const [isLeaveDetailModalOpen, setIsLeaveDetailModalOpen] = useState(false);
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
+  // State to track if attendance has been reset for the day
+  const [attendanceResetForToday, setAttendanceResetForToday] = useState(false);
 
   const { getAdminStats: useAdminStats } = useAdminAPI();
 
@@ -58,6 +61,25 @@ const AdminDashboard = () => {
       return;
     }
 
+    // Check if the date has changed since the last check (Indian timezone)
+    const lastCheckTimestamp = Number(localStorage.getItem(LAST_ATTENDANCE_CHECK_KEY) || '0');
+    const dateChanged = hasDateChangedInIndianTimezone(lastCheckTimestamp);
+    
+    if (dateChanged && !attendanceResetForToday) {
+      // Update the last check timestamp to current day start in Indian timezone
+      const currentDayStartTimestamp = getStartOfDayTimestampInIndianTimezone();
+      localStorage.setItem(LAST_ATTENDANCE_CHECK_KEY, currentDayStartTimestamp.toString());
+      setAttendanceResetForToday(true);
+      
+      console.log('Date has changed in Indian timezone. Resetting attendance counts.');
+      // Set a toast notification to inform admin
+      setToast({
+        visible: true,
+        message: 'Attendance counts reset for new day (Indian timezone)',
+        type: 'info'
+      });
+    }
+
     // Fetch admin stats
     fetchAdminStats();
     fetchPendingLeaveRequests();
@@ -68,7 +90,25 @@ const AdminDashboard = () => {
   const fetchAdminStats = async () => {
     try {
       const data = await useAdminStats();
-      setStats(data);
+      
+      // If date has changed in Indian timezone, show zero counts for today's attendance
+      if (attendanceResetForToday && data) {
+        setStats({
+          users: data.users || 0,
+          employees: data.employees || 0,
+          departments: data.departments || 0,
+          pendingLeaveRequests: data.pendingLeaveRequests || 0,
+          departmentStats: data.departmentStats || [],
+          attendance: {
+            total: data.attendance?.total || 0,
+            present: 0,
+            absent: 0,
+            onLeave: 0
+          }
+        });
+      } else {
+        setStats(data);
+      }
     } catch (error) {
       console.error('Error fetching admin stats:', error);
       setToast({
@@ -352,7 +392,7 @@ const AdminDashboard = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Present Today</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.attendance?.present || 0}</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">{attendanceResetForToday ? 0 : (stats?.attendance?.present || 0)}</p>
             </div>
           </div>
         </motion.div>
@@ -372,7 +412,7 @@ const AdminDashboard = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Absent Today</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.attendance?.absent || 0}</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">{attendanceResetForToday ? 0 : (stats?.attendance?.absent || 0)}</p>
             </div>
           </div>
         </motion.div>
@@ -392,7 +432,7 @@ const AdminDashboard = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">On Leave</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.attendance?.onLeave || 0}</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">{attendanceResetForToday ? 0 : (stats?.attendance?.onLeave || 0)}</p>
             </div>
           </div>
         </motion.div>
