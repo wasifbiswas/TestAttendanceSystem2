@@ -14,6 +14,7 @@ import {
 } from '../api/admin';
 import { BiLoaderAlt } from 'react-icons/bi';
 import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers } from 'react-icons/fa';
+import LeaveDetailModal from '../components/admin/LeaveDetailModal';
 
 // Removed mock admin data
 
@@ -29,6 +30,10 @@ const AdminDashboard = () => {
     message: '', 
     type: 'info' as 'success' | 'error' | 'info' 
   });
+  // State variables for leave detail modal
+  const [isLeaveDetailModalOpen, setIsLeaveDetailModalOpen] = useState(false);
+  const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
+
   const { getAdminStats: useAdminStats } = useAdminAPI();
 
   // Calculate total employees from department stats as a fallback
@@ -67,10 +72,37 @@ const AdminDashboard = () => {
 
   const fetchPendingLeaveRequests = async () => {
     try {
+      console.log('Fetching pending leave requests...');
       const data = await getPendingLeaveRequests();
-      setPendingLeaves(data);
+      
+      // Log the results to help with debugging
+      console.log('Pending leave requests data:', data);
+      
+      if (!data || data.length === 0) {
+        console.log('No pending leave requests found');
+        setPendingLeaves([]);
+        return;
+      }
+      
+      // Ensure each leave request has an employee_code and is properly formatted
+      const enhancedData = data.map(leave => ({
+        ...leave,
+        employee_code: leave.employee_code || 'EMP-' + leave.id.substring(0, 5),
+        // Make sure other required fields are present
+        userId: leave.userId || (leave.emp_id ? leave.emp_id.toString() : ''),
+        userName: leave.userName || 'Unknown Employee',
+        type: leave.type || (leave.leave_type_id ? leave.leave_type_id.leave_name : 'Unknown Leave'),
+      }));
+      
+      setPendingLeaves(enhancedData);
+      console.log('Processed pending leaves with employee codes:', enhancedData);
     } catch (error) {
       console.error('Error fetching pending leave requests:', error);
+      setToast({
+        visible: true,
+        message: 'Failed to fetch pending leave requests',
+        type: 'error'
+      });
     }
   };
 
@@ -121,6 +153,11 @@ const AdminDashboard = () => {
         type: 'error'
       });
     }
+  };
+
+  const handleLeaveClick = (leaveId: string) => {
+    setSelectedLeaveId(leaveId);
+    setIsLeaveDetailModalOpen(true);
   };
 
   const handleLogout = () => {
@@ -251,6 +288,13 @@ const AdminDashboard = () => {
         duration={5000}
       />
 
+      {/* Leave Detail Modal */}
+      <LeaveDetailModal
+        isOpen={isLeaveDetailModalOpen}
+        onClose={() => setIsLeaveDetailModalOpen(false)}
+        leaveId={selectedLeaveId}
+      />
+
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         <motion.div
@@ -350,21 +394,36 @@ const AdminDashboard = () => {
             {pendingLeaves.length > 0 ? (
               <div className="space-y-4">
                 {pendingLeaves.map((leave) => (
-                  <div key={leave.id} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div 
+                    key={leave.id} 
+                    className="flex justify-between items-start p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-650 transition-colors cursor-pointer"
+                    onClick={() => handleLeaveClick(leave.id)}
+                  >
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{leave.userName}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{leave.type} Leave: {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</p>
+                      <div className="flex items-center space-x-2">
+                        <p className="font-medium text-gray-900 dark:text-white">{leave.userName}</p>
+                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded text-xs">
+                          {leave.employee_code || 'N/A'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{leave.type} Leave: {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}</p>
                       {leave.reason && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Reason: {leave.reason}</p>}
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 ml-4">
                       <button
-                        onClick={() => handleApproveLeave(leave.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleApproveLeave(leave.id);
+                        }}
                         className="px-3 py-1 bg-green-500 text-white text-sm rounded-md hover:bg-green-600"
                       >
                         Approve
                       </button>
                       <button
-                        onClick={() => handleDenyLeave(leave.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDenyLeave(leave.id);
+                        }}
                         className="px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600"
                       >
                         Deny

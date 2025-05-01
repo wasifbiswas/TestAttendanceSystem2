@@ -30,6 +30,8 @@ export interface LeaveRequest {
   id: string;
   userId: string;
   userName: string;
+  employee_id?: string;  // Added for employee identification
+  employee_code?: string; // Added for employee code display
   type: 'ANNUAL' | 'SICK' | 'CASUAL';
   start_date: string;  // Changed from startDate to match API
   end_date: string;    // Changed from endDate to match API
@@ -84,6 +86,32 @@ export interface LeaveType {
   leave_name: string;
   description?: string;
   default_annual_quota: number;
+}
+
+export interface EmployeeLeaveBalance {
+  _id: string;
+  leave_type_id: LeaveType;
+  allocated_leaves: number;
+  used_leaves: number;
+  pending_leaves: number;
+  carried_forward: number;
+  year: number;
+}
+
+export interface DetailedLeaveRequest extends LeaveRequest {
+  emp_id: {
+    _id: string;
+    employee_code: string;
+    designation: string;
+    user_id: {
+      _id: string;
+      username: string;
+      full_name: string;
+      email: string;
+    };
+  };
+  leave_type_id: LeaveType;
+  duration: number;
 }
 
 export const checkIn = async (): Promise<CheckInOutResponse> => {
@@ -245,6 +273,46 @@ export const getLeaveTypes = async (): Promise<LeaveType[]> => {
     return response.data;
   } catch (error) {
     console.error('Error fetching leave types:', error);
+    throw error;
+  }
+};
+
+// Get leave request details by ID
+export const getLeaveRequestDetails = async (leaveId: string): Promise<DetailedLeaveRequest> => {
+  try {
+    console.log('Fetching leave request details for ID:', leaveId);
+    const response = await api.get<DetailedLeaveRequest>(`/leaves/${leaveId}`);
+    
+    // Check if the response includes the employee details
+    if (!response.data.emp_id || !response.data.emp_id.employee_code) {
+      console.warn('Employee code missing in leave request details:', response.data);
+      
+      // Add a default employee code if missing
+      if (response.data.emp_id) {
+        response.data.emp_id.employee_code = response.data.emp_id.employee_code || 'N/A';
+      }
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching leave request details:', error);
+    
+    // Check for specific error types and provide better error messages
+    if (error.response && error.response.status === 404) {
+      throw new Error('Leave request not found. It may have been deleted.');
+    }
+    
+    throw error;
+  }
+};
+
+// Get employee leave balances
+export const getEmployeeLeaveBalances = async (employeeId: string): Promise<EmployeeLeaveBalance[]> => {
+  try {
+    const response = await api.get<EmployeeLeaveBalance[]>(`/leaves/balance/${employeeId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employee leave balances:', error);
     throw error;
   }
 };
