@@ -102,7 +102,7 @@ const LeaveDetailModal = ({ isOpen, onClose, leaveId }: LeaveDetailModalProps) =
               </button>
             </div>
             
-            <div className="overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+            <div className="overflow-y-auto flex-grow modal-content">
               {isLoading ? (
                 <div className="p-6 flex justify-center">
                   <svg className="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -195,7 +195,7 @@ const LeaveDetailModal = ({ isOpen, onClose, leaveId }: LeaveDetailModalProps) =
                   {/* Leave Balance */}
                   <div className="mt-6">
                     <h4 className="font-medium text-gray-900 dark:text-white text-lg mb-4">Leave Balances</h4>
-                    <div className="overflow-auto">
+                    <div className="overflow-auto custom-scrollbar">
                       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead className="bg-gray-50 dark:bg-gray-700">
                           <tr>

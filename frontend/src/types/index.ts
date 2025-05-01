@@ -29,4 +29,20 @@ export interface AdminStats {
     department: string;
     employeeCount: number;
   }>;
-} 
+}
+
+export interface LeaveRequest {
+  id: string;
+  userId: string;
+  userName?: string;
+  employee_code?: string;
+  emp_id?: string;
+  type: string;
+  leave_type_id?: any;
+  start_date: string;
+  end_date: string;
+  reason?: string;
+  status: 'pending' | 'approved' | 'denied';
+  created_at: string;
+  updated_at: string;
+}

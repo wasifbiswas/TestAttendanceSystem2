@@ -7,6 +7,7 @@ import {
   assignRole,
   removeRole,
   getSystemStats,
+  getUserRoleCounts,
 } from "../controllers/adminController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { admin } from "../middleware/roleMiddleware.js";
@@ -28,6 +29,7 @@ router.get("/stats", getSystemStats);
 
 // User management
 router.route("/users").get(getAllUsers);
+router.get("/users/role-counts", getUserRoleCounts);
 
 router
   .route("/users/:id")

@@ -79,6 +79,94 @@
   :focus-visible {
     @apply outline-none ring-2 ring-blue-500 ring-offset-2;
   }
+}
+
+/* Global stylish scrollbars for the entire application */
+@layer base {
+  /* For WebKit browsers (Chrome, Safari, newer Edge) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+    border-radius: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-image: linear-gradient(to bottom, #60a5fa, #3b82f6);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    transition: all 0.3s ease;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background-image: linear-gradient(to bottom, #3b82f6, #2563eb);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-image: linear-gradient(to bottom, #3b82f6, #2563eb);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background-image: linear-gradient(to bottom, #2563eb, #1d4ed8);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox scrollbar styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3b82f6 transparent;
+  }
+
+  .dark * {
+    scrollbar-color: #2563eb transparent;
+  }
+
+  /* Custom scrollbar class for specific elements */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #60a5fa;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #3b82f6;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #3b82f6;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #2563eb;
+  }
+
+  /* Firefox scrollbar styling for the custom class */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #3b82f6 transparent;
+  }
+
+  .dark .custom-scrollbar {
+    scrollbar-color: #2563eb transparent;
+  }
 
   /* Hide scrollbars but keep functionality */
   .hide-scrollbar {
@@ -88,6 +176,38 @@
 
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Stylish scrollbar for modal content */
+  .modal-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .modal-content::-webkit-scrollbar-thumb {
+    background-image: linear-gradient(to bottom, #60a5fa, #3b82f6);
+    border-radius: 10px;
+  }
+
+  .dark .modal-content::-webkit-scrollbar-thumb {
+    background-image: linear-gradient(to bottom, #3b82f6, #2563eb);
+  }
+
+  /* Stylish scrollbar for select dropdowns and textareas */
+  select::-webkit-scrollbar,
+  textarea::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  select::-webkit-scrollbar-thumb,
+  textarea::-webkit-scrollbar-thumb {
+    background-color: #60a5fa;
+    border-radius: 10px;
+  }
+
+  .dark select::-webkit-scrollbar-thumb,
+  .dark textarea::-webkit-scrollbar-thumb {
+    background-color: #3b82f6;
   }
 }
 
@@ -113,7 +233,8 @@
     @apply hidden xl:block 2xl:hidden;
   }
 
-  .2xl-only {
+  /* Fix for class name starting with a number */
+  .two-xl-only {
     @apply hidden 2xl:block;
   }
 

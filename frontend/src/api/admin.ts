@@ -1,5 +1,5 @@
 import api from './axios';
-import { AdminStats, LeaveRequest, User } from '../types';
+import { AdminStats, User, LeaveRequest } from '../types';
 import { useState } from 'react';
 
 // Add the useAdminAPI hook
@@ -287,4 +287,17 @@ export const removeRoleFromUser = async (userId: string, roleId: string): Promis
 export const getUserRoles = async (userId: string): Promise<string[]> => {
   const response = await api.get(`/admin/users/${userId}/roles`);
   return response.data;
-}; 
+};
+
+/**
+ * Get user counts by role with employee IDs
+ * @returns Object containing counts and IDs of employees, managers, and admins
+ */
+export const getUserRoleCounts = async (): Promise<{
+  employees: { count: number, ids: string[] },
+  managers: { count: number, ids: string[] },
+  admins: { count: number, ids: string[] }
+}> => {
+  const response = await api.get('/admin/users/role-counts');
+  return response.data;
+};

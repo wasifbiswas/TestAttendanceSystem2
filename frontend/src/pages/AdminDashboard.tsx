@@ -10,10 +10,11 @@ import {
   approveLeaveRequest, 
   denyLeaveRequest,
   getDepartmentStats,
-  useAdminAPI
+  useAdminAPI,
+  getUserRoleCounts
 } from '../api/admin';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield } from 'react-icons/fa';
 import LeaveDetailModal from '../components/admin/LeaveDetailModal';
 
 // Removed mock admin data
@@ -25,6 +26,15 @@ const AdminDashboard = () => {
   const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
   const [departmentStats, setDepartmentStats] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [roleCounts, setRoleCounts] = useState<{
+    employees: { count: number, ids: string[] },
+    managers: { count: number, ids: string[] },
+    admins: { count: number, ids: string[] }
+  }>({
+    employees: { count: 0, ids: [] },
+    managers: { count: 0, ids: [] },
+    admins: { count: 0, ids: [] }
+  });
   const [toast, setToast] = useState({ 
     visible: false, 
     message: '', 
@@ -52,6 +62,7 @@ const AdminDashboard = () => {
     fetchAdminStats();
     fetchPendingLeaveRequests();
     fetchDepartmentStats();
+    fetchRoleCounts();
   }, [isAdmin, navigate]);
 
   const fetchAdminStats = async () => {
@@ -112,6 +123,15 @@ const AdminDashboard = () => {
       setDepartmentStats(data);
     } catch (error) {
       console.error('Error fetching department stats:', error);
+    }
+  };
+
+  const fetchRoleCounts = async () => {
+    try {
+      const data = await getUserRoleCounts();
+      setRoleCounts(data);
+    } catch (error) {
+      console.error('Error fetching role counts:', error);
     }
   };
 
@@ -378,6 +398,70 @@ const AdminDashboard = () => {
         </motion.div>
       </div>
 
+      {/* Role-based Summary Dashboard */}
+      <motion.div
+        custom={7}
+        initial="hidden"
+        animate="visible"
+        variants={fadeIn}
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-8"
+      >
+        <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Staff Summary by Role</h3>
+          <button 
+            onClick={() => fetchRoleCounts()}
+            className="text-blue-500 hover:text-blue-600 text-sm flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Employees Card */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-5 flex items-center justify-between border border-blue-100 dark:border-blue-800">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-800/50 text-blue-600 dark:text-blue-400 mr-4">
+                  <FaUsers className="text-2xl" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">Employees</h4>
+              </div>
+              <div className="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-300 px-4 py-2 rounded-lg text-xl font-bold">
+                {roleCounts.employees.count}
+              </div>
+            </div>
+
+            {/* Managers Card */}
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-5 flex items-center justify-between border border-green-100 dark:border-green-800">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-green-100 dark:bg-green-800/50 text-green-600 dark:text-green-400 mr-4">
+                  <FaUserTie className="text-2xl" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">Managers</h4>
+              </div>
+              <div className="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-300 px-4 py-2 rounded-lg text-xl font-bold">
+                {roleCounts.managers.count}
+              </div>
+            </div>
+
+            {/* Admins Card */}
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-5 flex items-center justify-between border border-purple-100 dark:border-purple-800">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-800/50 text-purple-600 dark:text-purple-400 mr-4">
+                  <FaUserShield className="text-2xl" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">Administrators</h4>
+              </div>
+              <div className="bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-300 px-4 py-2 rounded-lg text-xl font-bold">
+                {roleCounts.admins.count}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Pending Approvals and Departments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <motion.div
@@ -447,35 +531,71 @@ const AdminDashboard = () => {
           variants={fadeIn}
           className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden"
         >
-          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Department Overview</h3>
+            <button 
+              onClick={() => fetchDepartmentStats()}
+              className="text-blue-500 hover:text-blue-600 text-sm flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
           </div>
           <div className="p-6">
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Department
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Employees
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {departmentStats.map((dept) => (
-                    <tr key={dept.department}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {dept.department}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {dept.employeeCount}
-                      </td>
+            <div className="overflow-y-auto max-h-60 custom-scrollbar">
+              {departmentStats.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Department
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Employees
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {departmentStats.map((dept) => (
+                      <tr key={dept.department}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {dept.department}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          <span className="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded">
+                            {dept.employeeCount}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            dept.employeeCount > 0 ? 'bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/30 dark:text-yellow-400'
+                          }`}>
+                            {dept.employeeCount > 0 ? 'Active' : 'No Employees'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-40">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <p className="text-gray-500 dark:text-gray-400">No departments found</p>
+                  <button 
+                    onClick={() => fetchDepartmentStats()}
+                    className="mt-2 px-3 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
+                  >
+                    Refresh Departments
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
