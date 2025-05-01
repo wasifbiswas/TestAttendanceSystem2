@@ -15,7 +15,7 @@ export const registerUser = asyncHandler(async (req, res) => {
       JSON.stringify(req.body, null, 2)
     );
 
-    const { username, email, password, full_name, contact_number, department } =
+    const { username, email, password, full_name, contact_number, department, gender } =
       req.body;
 
     // Log request info for debugging
@@ -47,6 +47,7 @@ export const registerUser = asyncHandler(async (req, res) => {
       full_name,
       contact_number,
       department,
+      gender,
       join_date: new Date(),
       is_active: true,
     };
@@ -161,6 +162,7 @@ export const getUserProfile = asyncHandler(async (req, res) => {
       join_date: user.join_date,
       contact_number: user.contact_number,
       department: user.department,
+      gender: user.gender,
       is_active: user.is_active,
       roles,
     });
@@ -180,6 +182,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     user.full_name = req.body.full_name || user.full_name;
     user.email = req.body.email || user.email;
     user.contact_number = req.body.contact_number || user.contact_number;
+    user.gender = req.body.gender || user.gender;
 
     // Update password if provided
     if (req.body.password) {
@@ -209,6 +212,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
       full_name: updatedUser.full_name,
       join_date: updatedUser.join_date,
       contact_number: updatedUser.contact_number,
+      gender: updatedUser.gender,
       is_active: updatedUser.is_active,
       roles,
     });

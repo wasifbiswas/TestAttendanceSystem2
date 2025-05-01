@@ -13,12 +13,18 @@ import {
   getUserRoleCounts
 } from '../api/admin';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars } from 'react-icons/fa';
 import LeaveDetailModal from '../components/admin/LeaveDetailModal';
 import { hasDateChangedInIndianTimezone, getStartOfDayTimestampInIndianTimezone } from '../utils/dateUtils';
 
 // Key for storing the last check date in localStorage
 const LAST_ATTENDANCE_CHECK_KEY = 'admin_last_attendance_check';
+
+// Gender-specific leave types
+const GENDER_SPECIFIC_LEAVES = {
+  FEMALE: ['ML', 'MATERNITY'], // Maternity leave codes
+  MALE: ['PL', 'PATERNITY'],   // Paternity leave codes
+};
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -121,6 +127,39 @@ const AdminDashboard = () => {
     }
   };
 
+  // Helper function to determine if a leave type is gender-specific
+  const getLeaveGenderType = (leave: any): 'MALE' | 'FEMALE' | null => {
+    const leaveTypeCode = leave.leave_type_id?.leave_code || '';
+    const leaveTypeName = leave.leave_type_id?.leave_name || leave.type || '';
+    
+    // Check for female-specific leaves
+    if (GENDER_SPECIFIC_LEAVES.FEMALE.some(code => 
+        leaveTypeCode.includes(code) || 
+        leaveTypeName.toUpperCase().includes('MATERNITY'))) {
+      return 'FEMALE';
+    }
+    
+    // Check for male-specific leaves
+    if (GENDER_SPECIFIC_LEAVES.MALE.some(code => 
+        leaveTypeCode.includes(code) || 
+        leaveTypeName.toUpperCase().includes('PATERNITY'))) {
+      return 'MALE';
+    }
+    
+    return null;
+  };
+
+  // Get the appropriate icon for gender-specific leave types
+  const getLeaveTypeIcon = (leave: any) => {
+    const genderType = getLeaveGenderType(leave);
+    if (genderType === 'FEMALE') {
+      return <FaVenus className="text-pink-500 ml-1" />;
+    } else if (genderType === 'MALE') {
+      return <FaMars className="text-blue-500 ml-1" />;
+    }
+    return null;
+  };
+
   const fetchPendingLeaveRequests = async () => {
     try {
       console.log('Fetching pending leave requests...');
@@ -143,6 +182,8 @@ const AdminDashboard = () => {
         userId: leave.userId || (leave.emp_id ? leave.emp_id.toString() : ''),
         userName: leave.userName || 'Unknown Employee',
         type: leave.type || (leave.leave_type_id ? leave.leave_type_id.leave_name : 'Unknown Leave'),
+        // Add gender info for leave display
+        genderSpecific: getLeaveGenderType(leave)
       }));
       
       setPendingLeaves(enhancedData);
@@ -529,8 +570,23 @@ const AdminDashboard = () => {
                         <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded text-xs">
                           {leave.employee_code || 'N/A'}
                         </span>
+                        {/* Gender indicator for leave type */}
+                        {leave.genderSpecific && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            leave.genderSpecific === 'FEMALE' 
+                              ? 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300' 
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          }`}>
+                            {leave.genderSpecific === 'FEMALE' ? 'Maternity' : 'Paternity'}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{leave.type} Leave: {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}</p>
+                      <div className="flex items-center mt-1">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {leave.type} Leave: {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
+                        </p>
+                        {getLeaveTypeIcon(leave)}
+                      </div>
                       {leave.reason && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Reason: {leave.reason}</p>}
                     </div>
                     <div className="flex space-x-2 ml-4">

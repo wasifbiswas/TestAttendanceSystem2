@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LeaveRequest, LeaveType, getLeaveTypes } from '../api/attendance';
+import { useAuthStore } from '../store/authStore';
+import { FaVenus, FaMars } from 'react-icons/fa';
+
+// Gender-specific leave type codes
+const GENDER_SPECIFIC_LEAVES = {
+  FEMALE: ['ML', 'MATERNITY'], // Maternity leave codes
+  MALE: ['PL', 'PATERNITY'],   // Paternity leave codes
+};
 
 interface LeaveRequestModalProps {
   isOpen: boolean;
@@ -9,6 +17,8 @@ interface LeaveRequestModalProps {
 }
 
 const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps) => {
+  const { user } = useAuthStore();
+  
   // Update form data to track leaveTypeId instead of type
   const [formData, setFormData] = useState<{
     leaveTypeId: string;
@@ -23,9 +33,79 @@ const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps
   });
 
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [filteredLeaveTypes, setFilteredLeaveTypes] = useState<LeaveType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userGender, setUserGender] = useState<'MALE' | 'FEMALE' | null>(null);
+
+  // Determine user's gender based on profile info
+  useEffect(() => {
+    // If we have user gender in the profile or employee info, use it
+    // For now, use a heuristic based on the user's full name or role
+    // This should be replaced with actual gender data from your API when available
+    if (user) {
+      // This is a simplified example - in a real app, you'd get the gender from the user profile
+      const name = user.full_name || '';
+      // Simple heuristic - in a real app, replace this logic with actual gender data
+      // This is just a placeholder and should be replaced with proper gender determination
+      if (name.endsWith('a') || name.endsWith('i')) {
+        setUserGender('FEMALE');
+      } else {
+        setUserGender('MALE');
+      }
+    }
+  }, [user]);
+
+  // Helper function to determine if a leave type is gender-specific
+  const getLeaveGenderType = (leaveType: LeaveType): 'MALE' | 'FEMALE' | null => {
+    const code = leaveType.leave_code || '';
+    const name = leaveType.leave_name || '';
+    
+    // Check for female-specific leaves
+    if (GENDER_SPECIFIC_LEAVES.FEMALE.some(c => 
+        code.includes(c) || 
+        name.toUpperCase().includes('MATERNITY'))) {
+      return 'FEMALE';
+    }
+    
+    // Check for male-specific leaves
+    if (GENDER_SPECIFIC_LEAVES.MALE.some(c => 
+        code.includes(c) || 
+        name.toUpperCase().includes('PATERNITY'))) {
+      return 'MALE';
+    }
+    
+    return null;
+  };
+
+  // Filter leave types based on gender
+  useEffect(() => {
+    if (leaveTypes.length > 0) {
+      // Apply gender-based filtering
+      const filtered = leaveTypes.filter(leaveType => {
+        const genderType = getLeaveGenderType(leaveType);
+        
+        // If it's a gender-specific leave, check if it matches the user's gender
+        if (genderType) {
+          return genderType === userGender;
+        }
+        
+        // Non-gender-specific leaves are available to all
+        return true;
+      });
+      
+      setFilteredLeaveTypes(filtered);
+      
+      // Update the selected leave type if the current one isn't available after filtering
+      if (filtered.length > 0 && formData.leaveTypeId) {
+        const currentTypeExists = filtered.some(type => type._id === formData.leaveTypeId);
+        if (!currentTypeExists) {
+          setFormData(prev => ({ ...prev, leaveTypeId: filtered[0]._id }));
+        }
+      }
+    }
+  }, [leaveTypes, userGender]);
 
   // Fetch leave types when the modal opens
   useEffect(() => {
@@ -35,10 +115,12 @@ const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps
         try {
           const types = await getLeaveTypes();
           setLeaveTypes(types);
-          // Set the first leave type as default if available
+          
+          // Set the first valid leave type as default if available
           if (types.length > 0 && !formData.leaveTypeId) {
             setFormData(prev => ({ ...prev, leaveTypeId: types[0]._id }));
           }
+          
           setIsLoading(false);
         } catch (err) {
           console.error('Failed to fetch leave types:', err);
@@ -82,7 +164,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps
       onClose();
       // Reset form
       setFormData({
-        leaveTypeId: leaveTypes.length > 0 ? leaveTypes[0]._id : '',
+        leaveTypeId: filteredLeaveTypes.length > 0 ? filteredLeaveTypes[0]._id : '',
         startDate: '',
         endDate: '',
         reason: ''
@@ -94,11 +176,27 @@ const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps
     }
   };
 
+  // Get gender icon for leave type
+  const getLeaveTypeIcon = (leaveType: LeaveType) => {
+    const genderType = getLeaveGenderType(leaveType);
+    if (genderType === 'FEMALE') {
+      return <FaVenus className="text-pink-500 ml-1" />;
+    } else if (genderType === 'MALE') {
+      return <FaMars className="text-blue-500 ml-1" />;
+    }
+    return null;
+  };
+
   // Close modal when clicking outside
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  // Get the selected leave type object
+  const getSelectedLeaveType = (): LeaveType | undefined => {
+    return leaveTypes.find(type => type._id === formData.leaveTypeId);
   };
 
   return (
@@ -140,23 +238,43 @@ const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps
                     <label htmlFor="leaveTypeId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Leave Type
                     </label>
-                    <select
-                      id="leaveTypeId"
-                      name="leaveTypeId"
-                      value={formData.leaveTypeId}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white text-sm"
-                      required
-                    >
-                      {leaveTypes.length === 0 && (
-                        <option value="">No leave types available</option>
-                      )}
-                      {leaveTypes.map(type => (
-                        <option key={type._id} value={type._id}>
-                          {type.leave_name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        id="leaveTypeId"
+                        name="leaveTypeId"
+                        value={formData.leaveTypeId}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white text-sm"
+                        required
+                      >
+                        {filteredLeaveTypes.length === 0 && (
+                          <option value="">No leave types available</option>
+                        )}
+                        {filteredLeaveTypes.map(type => (
+                          <option key={type._id} value={type._id}>
+                            {type.leave_name}
+                          </option>
+                        ))}
+                      </select>
+                      {/* Display gender icon for selected leave type */}
+                      <div className="absolute right-10 top-2.5">
+                        {getSelectedLeaveType() && getLeaveTypeIcon(getSelectedLeaveType()!)}
+                      </div>
+                    </div>
+                    
+                    {/* Gender-specific leave indicator if applicable */}
+                    {getSelectedLeaveType() && getLeaveGenderType(getSelectedLeaveType()!) && (
+                      <div className={`mt-1 text-xs font-medium inline-flex items-center rounded-full px-2 py-1 ${
+                        getLeaveGenderType(getSelectedLeaveType()!) === 'FEMALE' 
+                          ? 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300' 
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                      }`}>
+                        {getLeaveGenderType(getSelectedLeaveType()!) === 'FEMALE' 
+                          ? <><FaVenus className="mr-1" /> Maternity Leave</>
+                          : <><FaMars className="mr-1" /> Paternity Leave</>
+                        }
+                      </div>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -221,7 +339,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSubmit }: LeaveRequestModalProps
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || leaveTypes.length === 0}
+                    disabled={isSubmitting || filteredLeaveTypes.length === 0}
                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-70 flex items-center"
                   >
                     {isSubmitting ? (

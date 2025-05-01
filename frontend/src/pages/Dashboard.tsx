@@ -7,9 +7,15 @@ import { useGoogleCalendar } from '../context/GoogleCalendarContext';
 import LeaveRequestModal from '../components/LeaveRequestModal';
 import ScheduleModal from '../components/ScheduleModal';
 import Toast from '../components/Toast';
-import { LeaveRequest } from '../api/attendance';
+import { LeaveRequest, EmployeeLeaveBalance, getEmployeeLeaveBalances } from '../api/attendance';
 import RecentLeaves from '../components/RecentLeaves';
-import { FaGoogle, FaSync } from 'react-icons/fa';
+import { FaGoogle, FaSync, FaVenus, FaMars } from 'react-icons/fa';
+
+// Gender-specific leave type codes
+const GENDER_SPECIFIC_LEAVES = {
+  FEMALE: ['ML', 'MATERNITY'], // Maternity leave codes
+  MALE: ['PL', 'PATERNITY'],   // Paternity leave codes
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -38,16 +44,82 @@ const Dashboard = () => {
     message: '', 
     type: 'info' as 'success' | 'error' | 'info' 
   });
+  
+  // New state for detailed leave balances and gender
+  const [detailedLeaveBalances, setDetailedLeaveBalances] = useState<EmployeeLeaveBalance[]>([]);
+  const [userGender, setUserGender] = useState<'MALE' | 'FEMALE' | null>(null);
+
+  // Determine user's gender based on profile info
+  useEffect(() => {
+    // If we have user gender in the profile or employee info, use it
+    // For now, use a heuristic based on the user's full name or role
+    // This should be replaced with actual gender data from your API when available
+    if (user) {
+      // Simple heuristic - in a real app, replace this logic with actual gender data
+      const name = user.full_name || '';
+      // This is a simplified example - in a real app, you'd get the gender from the user profile
+      if (name.endsWith('a') || name.endsWith('i')) {
+        setUserGender('FEMALE');
+      } else {
+        setUserGender('MALE');
+      }
+    }
+  }, [user]);
+
+  // Helper function to determine if a leave type is gender-specific
+  const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMALE' | null => {
+    if (!leaveBalance?.leave_type_id) return null;
+    
+    const code = leaveBalance.leave_type_id.leave_code || '';
+    const name = leaveBalance.leave_type_id.leave_name || '';
+    
+    // Check for female-specific leaves
+    if (GENDER_SPECIFIC_LEAVES.FEMALE.some(c => 
+        code.includes(c) || 
+        name.toUpperCase().includes('MATERNITY'))) {
+      return 'FEMALE';
+    }
+    
+    // Check for male-specific leaves
+    if (GENDER_SPECIFIC_LEAVES.MALE.some(c => 
+        code.includes(c) || 
+        name.toUpperCase().includes('PATERNITY'))) {
+      return 'MALE';
+    }
+    
+    return null;
+  };
+
+  // Get gender icon for leave balance
+  const getLeaveTypeIcon = (leaveBalance: EmployeeLeaveBalance) => {
+    const genderType = getLeaveGenderType(leaveBalance);
+    if (genderType === 'FEMALE') {
+      return <FaVenus className="text-pink-500 ml-1" />;
+    } else if (genderType === 'MALE') {
+      return <FaMars className="text-blue-500 ml-1" />;
+    }
+    return null;
+  };
 
   useEffect(() => {
     // Fetch attendance data and user leaves when component mounts
     const loadData = async () => {
       await fetchAttendanceSummary();
       await fetchUserLeaves();
+      
+      // Fetch detailed leave balances if we have the employee ID
+      if (attendanceSummary?.employee_id) {
+        try {
+          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+          setDetailedLeaveBalances(balances);
+        } catch (error) {
+          console.error('Error fetching detailed leave balances:', error);
+        }
+      }
     };
     
     loadData();
-  }, [fetchAttendanceSummary, fetchUserLeaves]);
+  }, [fetchAttendanceSummary, fetchUserLeaves, attendanceSummary?.employee_id]);
 
   // Show toast notification for errors
   useEffect(() => {
@@ -107,6 +179,17 @@ const Dashboard = () => {
       // Don't transform it again, just pass it directly
       await requestLeave(leaveData);
       await fetchUserLeaves(); // Refresh leaves list after new request
+      
+      // Refresh detailed leave balances after submitting a leave request
+      if (attendanceSummary?.employee_id) {
+        try {
+          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+          setDetailedLeaveBalances(balances);
+        } catch (error) {
+          console.error('Error fetching detailed leave balances:', error);
+        }
+      }
+      
       setToast({
         visible: true,
         message: 'Leave request submitted successfully',
@@ -176,6 +259,97 @@ const Dashboard = () => {
     } finally {
       setIsSyncingCalendar(false);
     }
+  };
+
+  // Calculate the remaining balance for a leave type
+  const calculateRemainingBalance = (leaveBalance: EmployeeLeaveBalance): number => {
+    return leaveBalance.allocated_leaves + 
+           leaveBalance.carried_forward - 
+           leaveBalance.used_leaves - 
+           leaveBalance.pending_leaves;
+  };
+
+  // Filter leave balances based on gender for display
+  const getFilteredLeaveBalances = (): EmployeeLeaveBalance[] => {
+    if (!detailedLeaveBalances.length) return [];
+    
+    return detailedLeaveBalances.filter(balance => {
+      const genderType = getLeaveGenderType(balance);
+      
+      // If it's a gender-specific leave, check if it matches the user's gender
+      if (genderType) {
+        return genderType === userGender;
+      }
+      
+      // Non-gender-specific leaves are available to all
+      return true;
+    });
+  };
+
+  // Fallback to simple leave balance if detailed isn't available
+  const renderSimpleLeaveBalance = () => {
+    return (
+      <div className="space-y-2 sm:space-y-3">
+        <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
+          <span className="text-sm sm:text-base text-white">Annual Leave</span>
+          <span className="font-bold text-sm sm:text-base text-white">
+            {attendanceSummary?.leaveBalance.annual || 0} days
+          </span>
+        </div>
+        <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
+          <span className="text-sm sm:text-base text-white">Sick Leave</span>
+          <span className="font-bold text-sm sm:text-base text-white">
+            {attendanceSummary?.leaveBalance.sick || 0} days
+          </span>
+        </div>
+        <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
+          <span className="text-sm sm:text-base text-white">Casual Leave</span>
+          <span className="font-bold text-sm sm:text-base text-white">
+            {attendanceSummary?.leaveBalance.casual || 0} days
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // Detailed leave balance with gender-specific styling
+  const renderDetailedLeaveBalance = () => {
+    const filteredBalances = getFilteredLeaveBalances();
+    
+    if (!filteredBalances.length) {
+      return renderSimpleLeaveBalance();
+    }
+    
+    return (
+      <div className="space-y-2 sm:space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+        {filteredBalances.map((balance) => {
+          const genderType = getLeaveGenderType(balance);
+          const remaining = calculateRemainingBalance(balance);
+          
+          return (
+            <div 
+              key={balance._id} 
+              className={`flex justify-between items-center backdrop-blur-sm p-2 sm:p-3 rounded-lg
+                ${genderType === 'FEMALE' 
+                  ? 'bg-pink-500/20 border border-pink-400/30' 
+                  : genderType === 'MALE' 
+                    ? 'bg-blue-500/20 border border-blue-400/30' 
+                    : 'bg-white/20'}`}
+            >
+              <div className="flex items-center">
+                <span className="text-sm sm:text-base text-white">
+                  {balance.leave_type_id.leave_name}
+                </span>
+                {getLeaveTypeIcon(balance)}
+              </div>
+              <span className="font-bold text-sm sm:text-base text-white">
+                {remaining} days
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -366,27 +540,28 @@ const Dashboard = () => {
         >
           <div className="bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl overflow-hidden shadow-xl h-auto sm:h-64">
             <div className="p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Leave Balance</h3>
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
-                  <span className="text-sm sm:text-base text-white">Annual Leave</span>
-                  <span className="font-bold text-sm sm:text-base text-white">
-                    {attendanceSummary?.leaveBalance.annual || 0} days
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center justify-between">
+                <span>Leave Balance</span>
+                {userGender && (
+                  <span className="text-xs font-normal bg-white/20 rounded-full px-2 py-1 flex items-center">
+                    {userGender === 'FEMALE' ? (
+                      <><FaVenus className="mr-1" /> Female</>
+                    ) : (
+                      <><FaMars className="mr-1" /> Male</>
+                    )}
                   </span>
+                )}
+              </h3>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-32">
+                  <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
                 </div>
-                <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
-                  <span className="text-sm sm:text-base text-white">Sick Leave</span>
-                  <span className="font-bold text-sm sm:text-base text-white">
-                    {attendanceSummary?.leaveBalance.sick || 0} days
-                  </span>
-                </div>
-                <div className="flex justify-between items-center bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-lg">
-                  <span className="text-sm sm:text-base text-white">Casual Leave</span>
-                  <span className="font-bold text-sm sm:text-base text-white">
-                    {attendanceSummary?.leaveBalance.casual || 0} days
-                  </span>
-                </div>
-              </div>
+              ) : (
+                renderDetailedLeaveBalance()
+              )}
             </div>
           </div>
         </motion.div>

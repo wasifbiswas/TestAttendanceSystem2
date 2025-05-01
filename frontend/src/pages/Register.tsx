@@ -5,10 +5,13 @@ import { useAuthStore } from '../store/authStore';
 import { z } from 'zod';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
+// Define the Timeout type to avoid NodeJS namespace dependency
+type TimeoutId = ReturnType<typeof setTimeout>;
+
 // Extend window interface for our timeout
 declare global {
   interface Window {
-    validateTimeout?: NodeJS.Timeout;
+    validateTimeout?: TimeoutId;
   }
 }
 
@@ -46,6 +49,10 @@ const registerSchema = z.object({
   department: z
     .string()
     .min(1, "Department is required")
+    .trim(),
+  gender: z
+    .string()
+    .min(1, "Gender is required")
     .trim()
 }).refine((data) => data.password === data.confirm_password, {
   message: "Passwords don't match",
@@ -66,7 +73,8 @@ const Register = () => {
     first_name: '',
     last_name: '',
     contact_number: '',
-    department: ''
+    department: '',
+    gender: ''
   });
   const [validationErrors, setValidationErrors] = useState<FormErrors>({});
   const [touchedFields, setTouchedFields] = useState<{[key: string]: boolean}>({});
@@ -171,6 +179,10 @@ const Register = () => {
         case 'department':
           // Department validation
           return value ? null : ['Please select a department'];
+          
+        case 'gender':
+          // Gender validation
+          return value ? null : ['Please select a gender'];
       }
     } else {
       // For empty required fields
@@ -188,6 +200,8 @@ const Register = () => {
           return ['Please confirm your password'];
         case 'department':
           return ['Please select a department'];
+        case 'gender':
+          return ['Please select a gender'];
         default:
           return null;
       }
@@ -199,7 +213,7 @@ const Register = () => {
 
   // Validate the entire form with improved error messages
   const validateForm = () => {
-    const requiredFields = ['username', 'password', 'confirm_password', 'email', 'first_name', 'last_name', 'department'];
+    const requiredFields = ['username', 'password', 'confirm_password', 'email', 'first_name', 'last_name', 'department', 'gender'];
     let isValid = true;
     const errors: FormErrors = {};
     
@@ -296,7 +310,8 @@ const Register = () => {
         full_name: `${formData.first_name} ${formData.last_name}`.trim(),
         contact_number: formData.contact_number,
         // Add department to metadata or custom fields if backend supports it
-        department: formData.department
+        department: formData.department,
+        gender: formData.gender
       };
       
       console.log('About to register with data:', userData);
@@ -526,6 +541,38 @@ const Register = () => {
               )}
             </div>
 
+            <div className="mb-4">
+              <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+                Gender
+              </label>
+              <select
+                id="gender"
+                name="gender"
+                required
+                className={`mt-1 block w-full px-3 py-2 border ${
+                  validationErrors.gender ? 'border-red-500' : 'border-gray-300'
+                } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                value={formData.gender}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                style={{ 
+                  backgroundColor: 'white',
+                  color: '#374151'
+                }}
+              >
+                <option value="" style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>Select gender</option>
+                <option value="MALE" style={{ backgroundColor: '#eff6ff', color: '#1e40af' }}>Male</option>
+                <option value="FEMALE" style={{ backgroundColor: '#fdf2f8', color: '#9d174d' }}>Female</option>
+                <option value="OTHER" style={{ backgroundColor: '#f0fdfa', color: '#0f766e' }}>Other</option>
+              </select>
+              {validationErrors.gender && touchedFields.gender && (
+                <p className={errorMessageStyle}>
+                  <span className="mr-1">⚠️</span>
+                  {validationErrors.gender}
+                </p>
+              )}
+            </div>
+
             <div className="mb-4 relative">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -635,4 +682,4 @@ const Register = () => {
   );
 };
 
-export default Register; 
+export default Register;
