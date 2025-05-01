@@ -12,6 +12,7 @@ import ReportsPage from './pages/ReportsPage';
 import SystemSettings from './pages/SystemSettings';
 import HolidayManagement from './pages/HolidayManagement';
 import DepartmentSchedule from './pages/DepartmentSchedule';
+import AttendanceLogs from './pages/AttendanceLogs';
 import RoleDebugger from './components/RoleDebugger';
 import { GoogleCalendarProvider } from './context/GoogleCalendarContext';
 
@@ -100,6 +101,12 @@ function App() {
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/attendance-logs" element={
+            <ProtectedRoute>
+              <AttendanceLogs />
             </ProtectedRoute>
           } />
 

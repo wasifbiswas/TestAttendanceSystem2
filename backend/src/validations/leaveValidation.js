@@ -3,23 +3,25 @@ import { z } from "zod";
 // Create leave request validation schema
 export const createLeaveRequestSchema = z
   .object({
-    leaveType: z.string().min(1, { message: "Leave type is required" }),
-    startDate: z
+    emp_id: z.string().min(1, { message: "Employee ID is required" }),
+    leave_type_id: z.string().min(1, { message: "Leave type ID is required" }),
+    start_date: z
       .string()
       .datetime({ message: "Start date must be a valid date" }),
-    endDate: z.string().datetime({ message: "End date must be a valid date" }),
+    end_date: z.string().datetime({ message: "End date must be a valid date" }),
+    duration: z
+      .number()
+      .positive({ message: "Duration must be a positive number" }),
     reason: z
       .string()
       .min(5, { message: "Reason must be at least 5 characters long" })
       .max(500, { message: "Reason cannot exceed 500 characters" }),
-    attachmentUrl: z
-      .string()
-      .url({ message: "Attachment URL must be a valid URL" })
-      .optional(),
+    is_half_day: z.boolean().optional(),
+    contact_during_leave: z.string().optional(),
   })
-  .refine((data) => new Date(data.endDate) >= new Date(data.startDate), {
+  .refine((data) => new Date(data.end_date) >= new Date(data.start_date), {
     message: "End date must be after or equal to start date",
-    path: ["endDate"],
+    path: ["end_date"],
   });
 
 // Update leave request validation schema

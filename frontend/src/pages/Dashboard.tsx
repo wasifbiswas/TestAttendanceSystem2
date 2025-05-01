@@ -101,8 +101,10 @@ const Dashboard = () => {
     }
   };
 
-  const handleLeaveRequest = async (leaveData: LeaveRequest) => {
+  const handleLeaveRequest = async (leaveData: any) => {
     try {
+      // The data is already correctly formatted in LeaveRequestModal
+      // Don't transform it again, just pass it directly
       await requestLeave(leaveData);
       await fetchUserLeaves(); // Refresh leaves list after new request
       setToast({
@@ -110,8 +112,13 @@ const Dashboard = () => {
         message: 'Leave request submitted successfully',
         type: 'success'
       });
-    } catch (error) {
-      // Error is already handled in the store
+    } catch (error: any) {
+      // Show error message
+      setToast({
+        visible: true,
+        message: error.message || 'Failed to submit leave request',
+        type: 'error'
+      });
     }
   };
 
@@ -132,14 +139,24 @@ const Dashboard = () => {
     try {
       setIsSyncingCalendar(true);
       
-      // Initialize Google Calendar if needed
-      if (!isInitialized) {
-        await initialize();
-      }
-      
-      // Sign in if not already signed in
-      if (!isSignedIn) {
-        await signIn();
+      try {
+        // Initialize Google Calendar if needed
+        if (!isInitialized) {
+          await initialize();
+        }
+        
+        // Sign in if not already signed in
+        if (!isSignedIn) {
+          await signIn();
+        }
+      } catch (authError: any) {
+        setToast({
+          visible: true,
+          message: 'Failed to authenticate with Google Calendar. Please try again.',
+          type: 'error'
+        });
+        setIsSyncingCalendar(false);
+        return;
       }
       
       // Sync leaves to calendar
@@ -287,6 +304,12 @@ const Dashboard = () => {
                 >
                   View Schedule
                 </button>
+                <button 
+                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base"
+                  onClick={() => navigate('/attendance-logs')}
+                >
+                  Attendance Logs
+                </button>
               </div>
             </div>
           </div>
@@ -398,4 +421,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

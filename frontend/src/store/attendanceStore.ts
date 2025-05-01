@@ -74,7 +74,15 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   requestLeave: async (leaveData) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiRequestLeave(leaveData);
+      // Ensure data format matches API expectations
+      const apiLeaveData = {
+        ...leaveData,
+        start_date: leaveData.start_date || leaveData.startDate,
+        end_date: leaveData.end_date || leaveData.endDate,
+        type: leaveData.type || leaveData.leaveType
+      };
+      
+      const response = await apiRequestLeave(apiLeaveData);
       set({ isLoading: false });
       
       // Re-fetch attendance summary and user leaves to update leave balances
@@ -82,30 +90,24 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const leaves = await get().fetchUserLeaves();
       
       // If the leave request was successful, attempt to sync with Google Calendar
-      if (response && googleCalendarService.isUserSignedIn()) {
-        try {
-          const newLeave = leaves.find(leave => 
-            leave.start_date === leaveData.startDate && 
-            leave.end_date === leaveData.endDate &&
-            leave.type === leaveData.type
+      try {
+        if (googleCalendarService.isUserSignedIn()) {
+          const startDate = new Date(apiLeaveData.start_date);
+          const endDate = new Date(apiLeaveData.end_date);
+          endDate.setDate(endDate.getDate() + 1); // Add 1 day for Google Calendar all-day events
+          
+          await googleCalendarService.createLeaveEvent(
+            `${apiLeaveData.type} Leave Request (Pending)`,
+            startDate,
+            endDate,
+            `Reason: ${apiLeaveData.reason}\nStatus: Pending`
           );
           
-          if (newLeave && newLeave.status === 'Approved') {
-            const startDate = new Date(newLeave.start_date);
-            const endDate = new Date(newLeave.end_date);
-            endDate.setDate(endDate.getDate() + 1); // Add 1 day for Google Calendar all-day events
-            
-            await googleCalendarService.createLeaveEvent(
-              `${newLeave.type} Leave`,
-              startDate,
-              endDate,
-              `Reason: ${newLeave.reason}\nStatus: ${newLeave.status}`
-            );
-          }
-        } catch (error) {
-          console.error('Failed to sync leave with Google Calendar:', error);
-          // We don't set an error state here as the leave request itself was successful
+          set({ calendarSynced: true });
         }
+      } catch (syncError) {
+        console.error('Failed to sync leave with Google Calendar', syncError);
+        // Don't throw the error as the leave request was successful
       }
       
       return response;
@@ -196,4 +198,4 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-})); 
+}));
