@@ -198,11 +198,81 @@ export const getUserLeaves = async (): Promise<LeaveRequest[]> => {
 
 export const cancelLeaveRequest = async (leaveId: string): Promise<{ success: boolean; message: string }> => {
   try {
-    const response = await api.put<{ success: boolean; message: string }>(`/leaves/${leaveId}/cancel`);
-    return response.data;
-  } catch (error) {
+    console.log(`Attempting to cancel leave request with ID: ${leaveId}`);
+    
+    // Get all user leaves first to find the correct MongoDB _id
+    const userLeaves = await getUserLeaves();
+    console.log('Retrieved user leaves for ID matching:', userLeaves.length);
+    
+    // Find the leave with matching ID
+    const matchingLeave = userLeaves.find(leave => {
+      // Try various ways to match the leave
+      return (
+        leave.id === leaveId || 
+        // Use optional chaining to safely access potential _id property
+        (leave as any)?._id === leaveId ||
+        // Additional fallback checks if needed
+        (leave.id && typeof leave.id === 'string' && leaveId && typeof leaveId === 'string' && 
+          (leave.id.includes(leaveId) || leaveId.includes(leave.id)))
+      );
+    });
+    
+    if (matchingLeave) {
+      console.log('Found matching leave:', matchingLeave);
+      
+      // Use the proper MongoDB _id if available, otherwise use what we have
+      const idToUse = (matchingLeave as any)?._id || leaveId;
+      console.log(`Using ID for cancellation: ${idToUse}`);
+      
+      // Make the cancellation request
+      const response = await api.put<{ success: boolean; message: string }>(`/leaves/${idToUse}/cancel`);
+      
+      console.log('Successfully cancelled leave request:', response.data);
+      return {
+        success: true,
+        message: response.data.message || 'Leave request cancelled successfully'
+      };
+    } else {
+      console.warn('Could not find matching leave in user leaves');
+      
+      // Try direct cancellation as fallback
+      try {
+        const response = await api.put<{ success: boolean; message: string }>(`/leaves/${leaveId}/cancel`);
+        
+        console.log('Successfully cancelled leave request with direct approach:', response.data);
+        return {
+          success: true,
+          message: response.data.message || 'Leave request cancelled successfully'
+        };
+      } catch (directError: any) {
+        console.error('Direct cancellation failed:', directError.message);
+        throw directError; // Re-throw to be caught by the outer catch
+      }
+    }
+  } catch (error: any) {
     console.error('Cancel leave request error:', error);
-    throw error;
+    
+    // Provide more detailed error information
+    if (error.response) {
+      console.error('Error response status:', error.response.status);
+      console.error('Error response data:', error.response.data || 'No data');
+      
+      // Return a user-friendly error message based on the status code
+      if (error.response.status === 404) {
+        throw new Error('Leave request not found. It may have been already deleted.');
+      } else if (error.response.status === 403) {
+        throw new Error('You are not authorized to delete this leave request.');
+      } else if (error.response.status === 400) {
+        // More specific error for 400 Bad Request
+        const errorMsg = error.response.data?.message || 'Invalid leave request format';
+        throw new Error(`${errorMsg}. Please try again or refresh the page.`);
+      } else if (error.response.status === 500) {
+        throw new Error('Server error while deleting leave request. Please try again later.');
+      }
+    }
+    
+    // Fallback error message
+    throw new Error(error.message || 'Failed to cancel leave request');
   }
 };
 

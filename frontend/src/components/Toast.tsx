@@ -9,9 +9,10 @@ interface ToastProps {
   isVisible: boolean;
   onClose: () => void;
   duration?: number;  // in milliseconds
+  action?: () => void; // Adding the action prop
 }
 
-const Toast = ({ message, type, isVisible, onClose, duration = 3000 }: ToastProps) => {
+const Toast = ({ message, type, isVisible, onClose, duration = 3000, action }: ToastProps) => {
   useEffect(() => {
     if (isVisible) {
       const timer = setTimeout(() => {
@@ -74,7 +75,10 @@ const Toast = ({ message, type, isVisible, onClose, duration = 3000 }: ToastProp
             <div className="flex-shrink-0 mr-3 mt-0.5">
               {getToastIcon()}
             </div>
-            <div className="flex-1 pr-6">
+            <div 
+              className={`flex-1 pr-6 ${action ? 'cursor-pointer hover:underline' : ''}`}
+              onClick={action}
+            >
               <p className="text-sm font-medium">{message}</p>
             </div>
             <button
@@ -95,4 +99,4 @@ const Toast = ({ message, type, isVisible, onClose, duration = 3000 }: ToastProp
   );
 };
 
-export default Toast; 
+export default Toast;

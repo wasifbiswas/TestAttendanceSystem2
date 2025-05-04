@@ -7,7 +7,7 @@ import { useGoogleCalendar } from '../context/GoogleCalendarContext';
 import LeaveRequestModal from '../components/LeaveRequestModal';
 import ScheduleModal from '../components/ScheduleModal';
 import Toast from '../components/Toast';
-import { LeaveRequest, EmployeeLeaveBalance, getEmployeeLeaveBalances } from '../api/attendance';
+import { LeaveRequest, EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest } from '../api/attendance';
 import RecentLeaves from '../components/RecentLeaves';
 import { FaGoogle, FaSync, FaVenus, FaMars } from 'react-icons/fa';
 
@@ -39,10 +39,15 @@ const Dashboard = () => {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
-  const [toast, setToast] = useState({ 
+  const [toast, setToast] = useState<{ 
+    visible: boolean; 
+    message: string; 
+    type: 'success' | 'error' | 'info';
+    action?: () => void;
+  }>({ 
     visible: false, 
     message: '', 
-    type: 'info' as 'success' | 'error' | 'info' 
+    type: 'info'
   });
   
   // New state for detailed leave balances and gender
@@ -391,6 +396,125 @@ const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMAL
     }
   };
 
+  // Function to handle deleting a single leave request
+  const handleDeleteLeave = async (leaveId: string) => {
+    try {
+      // Call API to cancel the leave request
+      await cancelLeaveRequest(leaveId);
+      
+      // Refresh user leaves list after deletion
+      await fetchUserLeaves();
+      
+      // Also refresh attendance summary and leave balances
+      if (attendanceSummary?.employee_id) {
+        await fetchAttendanceSummary();
+        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+        setDetailedLeaveBalances(balances);
+      }
+      
+      setToast({
+        visible: true,
+        message: 'Leave request deleted successfully',
+        type: 'success'
+      });
+    } catch (error: any) {
+      console.error('Error deleting leave request:', error);
+      setToast({
+        visible: true,
+        message: error.message || 'Failed to delete leave request',
+        type: 'error'
+      });
+    }
+  };
+
+  // Function to clear all leave requests
+  const handleClearAllLeaves = async () => {
+    try {
+      // Show loading state if needed
+      
+      // Process all leave requests sequentially to avoid race conditions
+      if (userLeaves && userLeaves.length > 0) {
+        setToast({
+          visible: true,
+          message: 'Clearing all leave requests...',
+          type: 'info'
+        });
+        
+        // Create a promise for all cancellation operations
+        await Promise.all(
+          userLeaves.map(leave => cancelLeaveRequest(leave.id))
+        );
+        
+        // After all are processed, refresh the data
+        await fetchUserLeaves();
+        
+        // Also refresh attendance summary and leave balances
+        if (attendanceSummary?.employee_id) {
+          await fetchAttendanceSummary();
+          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+          setDetailedLeaveBalances(balances);
+        }
+        
+        setToast({
+          visible: true,
+          message: 'All leave requests cleared successfully',
+          type: 'success'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error clearing all leave requests:', error);
+      setToast({
+        visible: true,
+        message: error.message || 'Failed to clear leave requests',
+        type: 'error'
+      });
+    }
+  };
+
+  // Function to handle clearing all leave requests from dashboard (locally)
+const handleClearDashboardLeaves = () => {
+  // This only clears the leaves from the frontend state without affecting the database
+  // Useful for just cleaning up the UI
+  setToast({
+    visible: true,
+    message: 'Dashboard cleared. Leave requests still exist in the system.',
+    type: 'info'
+  });
+  
+  // Store the original leaves in case user wants to restore them
+  const originalLeaves = [...userLeaves];
+  
+  // Clear the leaves from the state
+  useAttendanceStore.setState({ userLeaves: [] });
+  
+  // Option to restore the leaves (using setTimeout to auto-dismiss)
+  const restoreTimeout = setTimeout(() => {
+    // After 10 seconds, clean up the restore option
+    setToast({
+      visible: false,
+      message: '',
+      type: 'info'
+    });
+  }, 10000);
+
+  // Return a toast with a restore button
+  setToast({
+    visible: true,
+    message: 'Dashboard cleared. Click here to restore.',
+    type: 'info',
+    action: () => {
+      // Restore the leaves when clicked
+      useAttendanceStore.setState({ userLeaves: originalLeaves });
+      clearTimeout(restoreTimeout);
+      setToast({
+        visible: true,
+        message: 'Leave requests restored',
+        type: 'success'
+      });
+    }
+  });
+};
+
   // Calculate the remaining balance for a leave type
   const calculateRemainingBalance = (leaveBalance: EmployeeLeaveBalance): number => {
     // Add debug logging to see the actual values
@@ -584,6 +708,7 @@ const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMAL
         isVisible={toast.visible}
         onClose={() => setToast({ ...toast, visible: false })}
         duration={5000}
+        action={toast.action}
       />
 
       {/* Leave request modal */}
@@ -817,6 +942,9 @@ const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMAL
               type: 'error'
             });
           }}
+          onDeleteLeave={handleDeleteLeave}
+          onClearAllLeaves={handleClearAllLeaves}
+          onClearDashboard={handleClearDashboardLeaves}
         />
       </motion.div>
     </div>
