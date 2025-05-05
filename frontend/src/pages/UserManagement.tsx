@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import Toast from '../components/Toast';
 import CreateUserForm from '../components/CreateUserForm';
 import { User } from '../types';
+import api from '../api/axios';
 import { 
   getAllUsers,
   getRoles,
@@ -60,18 +61,22 @@ const UserManagement = () => {
 
   const fetchUserDetails = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch user details');
-      }
-      const data = await response.json();
+      // Use the proper API call with axios instance that handles authentication
+      const response = await api.get(`/admin/users/${userId}`);
+      console.log(`User details for ${userId}:`, response.data);
+      
+      // Extract the roles from the response
+      const roles = response.data.roles || [];
+      
       return {
-        employee: data.employee
+        employee: response.data.employee,
+        roles: roles
       };
     } catch (error) {
       console.error(`Error fetching details for user ${userId}:`, error);
       return {
-        employee: null
+        employee: null,
+        roles: []
       };
     }
   };
@@ -84,18 +89,26 @@ const UserManagement = () => {
         getRoles()
       ]);
       
-      // Fetch roles and employee info for each user
-      const usersWithRoles = await Promise.all(
+      // Fetch detailed user data including employee info and roles
+      const usersWithDetails = await Promise.all(
         usersData.map(async (user) => {
           try {
-            const [userRoles, userDetails] = await Promise.all([
-              getUserRoles(user._id),
-              fetchUserDetails(user._id)
-            ]);
+            const userDetails = await fetchUserDetails(user._id);
+            
+            // Determine role IDs from role names
+            const roleIds = [];
+            if (userDetails.roles && userDetails.roles.length > 0) {
+              for (const roleName of userDetails.roles) {
+                const role = rolesData.find(r => r.role_name === roleName);
+                if (role) {
+                  roleIds.push(role._id);
+                }
+              }
+            }
             
             return {
               ...user,
-              assignedRoles: userRoles,
+              assignedRoles: roleIds, // Use the roles from fetchUserDetails
               employee: userDetails?.employee
             };
           } catch (error) {
@@ -109,7 +122,10 @@ const UserManagement = () => {
         })
       );
       
-      setUsers(usersWithRoles);
+      // Debug log to check if we're getting employee codes and roles
+      console.log('Users with details:', usersWithDetails);
+      
+      setUsers(usersWithDetails);
       setRoles(rolesData);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -398,6 +414,9 @@ const UserManagement = () => {
                   Email
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Employee Code
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Department
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -426,13 +445,23 @@ const UserManagement = () => {
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       @{user.username}
-                      {user.employee?.employee_code && <span className="ml-1 text-xs">({user.employee.employee_code})</span>}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       {user.email}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {user.employee?.employee_code ? (
+                      <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2.5 py-1 rounded text-sm font-medium">
+                        {user.employee.employee_code}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        Not Assigned
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
