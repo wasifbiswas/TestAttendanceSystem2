@@ -301,3 +301,23 @@ export const getUserRoleCounts = async (): Promise<{
   const response = await api.get('/admin/users/role-counts');
   return response.data;
 };
+
+/**
+ * Get all departments
+ * @returns Array of departments
+ */
+export const getAllDepartments = async (): Promise<{ _id: string; dept_name: string; description: string }[]> => {
+  const response = await api.get('/departments');
+  return response.data;
+};
+
+/**
+ * Assign department to a user
+ * @param userId - ID of the user
+ * @param departmentId - ID of the department to assign
+ * @returns Success response
+ */
+export const assignDepartmentToUser = async (userId: string, departmentId: string): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/admin/users/${userId}/department`, { department_id: departmentId });
+  return response.data;
+};

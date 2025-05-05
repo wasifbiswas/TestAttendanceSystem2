@@ -8,6 +8,7 @@ import {
   removeRole,
   getSystemStats,
   getUserRoleCounts,
+  assignDepartment,
 } from "../controllers/adminController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { admin } from "../middleware/roleMiddleware.js";
@@ -40,6 +41,9 @@ router
 // Role management
 router.post("/users/:id/roles", assignRole);
 router.delete("/users/:userId/roles/:roleId", removeRole);
+
+// Department management
+router.post("/users/:id/department", assignDepartment);
 
 // Leave request management
 router.get("/leave-requests/pending", async (req, res) => {

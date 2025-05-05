@@ -188,6 +188,78 @@ export const removeRole = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Assign department to user
+// @route   POST /api/admin/users/:id/department
+// @access  Private/Admin
+export const assignDepartment = asyncHandler(async (req, res) => {
+  const { department_id } = req.body;
+  const userId = req.params.id;
+
+  // Check if user exists
+  const user = await User.findById(userId);
+  if (!user) {
+    res.status(404);
+    throw new AppError("User not found", 404);
+  }
+
+  // Check if department exists
+  const department = await Department.findById(department_id);
+  if (!department) {
+    res.status(404);
+    throw new AppError("Department not found", 404);
+  }
+
+  // Check if user already has an employee profile
+  let employee = await Employee.findOne({ user_id: userId });
+
+  if (employee) {
+    // Update existing employee's department
+    employee.dept_id = department_id;
+    await employee.save();
+  } else {
+    // Create a new employee profile for the user
+    // Generate employee code based on department name and user ID
+    const deptCode = department.dept_name.slice(0, 3).toUpperCase();
+    const userIdShort = userId.toString().slice(-4);
+    const employeeCode = `${deptCode}-${userIdShort}`;
+
+    employee = await Employee.create({
+      user_id: userId,
+      dept_id: department_id,
+      employee_code: employeeCode,
+      designation: "Staff", // Default designation
+      join_date: new Date(),
+    });
+
+    // Assign EMPLOYEE role if not already assigned
+    const employeeRole = await Role.findOne({ role_name: "EMPLOYEE" });
+    if (employeeRole) {
+      const hasRole = await UserRole.findOne({
+        user_id: userId,
+        role_id: employeeRole._id,
+      });
+
+      if (!hasRole) {
+        await UserRole.create({
+          user_id: userId,
+          role_id: employeeRole._id,
+          assigned_date: new Date(),
+        });
+      }
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Department assigned successfully",
+    employee: {
+      _id: employee._id,
+      employee_code: employee.employee_code,
+      department: department.dept_name,
+    },
+  });
+});
+
 // @desc    Get system statistics
 // @route   GET /api/admin/stats
 // @access  Private/Admin

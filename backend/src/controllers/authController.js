@@ -82,6 +82,49 @@ export const registerUser = asyncHandler(async (req, res) => {
         console.log("Warning: EMPLOYEE role not found");
       }
 
+      // If department is provided, create an employee profile and assign department
+      if (department) {
+        try {
+          // Import required models
+          const Department = (await import("../models/Department.js")).default;
+          const Employee = (await import("../models/Employee.js")).default;
+
+          // Find department by name
+          const departmentObj = await Department.findOne({
+            dept_name: department,
+          });
+
+          if (departmentObj) {
+            console.log(
+              `Found department: ${departmentObj.dept_name} with ID: ${departmentObj._id}`
+            );
+
+            // Generate employee code based on department name and user ID
+            const deptCode = departmentObj.dept_name.slice(0, 3).toUpperCase();
+            const userIdShort = user._id.toString().slice(-4);
+            const employeeCode = `${deptCode}-${userIdShort}`;
+
+            // Create employee profile
+            const employee = await Employee.create({
+              user_id: user._id,
+              dept_id: departmentObj._id,
+              employee_code: employeeCode,
+              designation: "Staff", // Default designation
+              join_date: new Date(),
+            });
+
+            console.log(
+              `Created employee profile with code: ${employeeCode} for user: ${user.username}`
+            );
+          } else {
+            console.log(`Department not found with name: ${department}`);
+          }
+        } catch (err) {
+          console.error("Error creating employee profile:", err);
+          // Don't fail the registration if employee profile creation fails
+        }
+      }
+
       res.status(201).json({
         _id: user._id,
         username: user.username,
