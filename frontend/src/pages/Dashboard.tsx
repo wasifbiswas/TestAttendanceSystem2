@@ -10,6 +10,7 @@ import Toast from '../components/Toast';
 import { LeaveRequest, EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest } from '../api/attendance';
 import RecentLeaves from '../components/RecentLeaves';
 import { FaGoogle, FaSync, FaVenus, FaMars } from 'react-icons/fa';
+import api from '../api/axios';
 
 // Gender-specific leave type codes
 const GENDER_SPECIFIC_LEAVES = {
@@ -34,6 +35,9 @@ const Dashboard = () => {
     error 
   } = useAttendanceStore();
   const { isInitialized, isSignedIn, initialize, signIn } = useGoogleCalendar();
+
+  // State for employee code display
+  const [employeeCode, setEmployeeCode] = useState<string>("");
 
   // State for modals and notifications
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
@@ -263,6 +267,20 @@ const getLeaveGenderType = (leaveBalance: EmployeeLeaveBalance): 'MALE' | 'FEMAL
       }
     })();
   }, [userLeaves, attendanceSummary?.employee_id]);
+
+  // Effect to get employee code from the attendance summary
+  useEffect(() => {
+    if (attendanceSummary?.employee_code) {
+      console.log('Found employee code in attendance summary:', attendanceSummary.employee_code);
+      setEmployeeCode(attendanceSummary.employee_code);
+    } else if (attendanceSummary?.employee_id) {
+      // If employee_code is not available, at least show something to the user
+      console.log('Employee code not found, using ID as fallback:', attendanceSummary.employee_id);
+      // Just use the last 5 characters of ID as a simpler identifier
+      const shortId = attendanceSummary.employee_id.substring(attendanceSummary.employee_id.length - 5);
+      setEmployeeCode(`EMP-${shortId}`);
+    }
+  }, [attendanceSummary]);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -661,9 +679,16 @@ const handleClearDashboardLeaves = () => {
         transition={{ duration: 0.5 }}
         className="mb-6 sm:mb-8 flex justify-between items-center"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-          Welcome back, {user?.full_name || 'User'}!
-        </h1>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+            Welcome back, {user?.full_name || 'User'}!
+          </h1>
+          {employeeCode && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Employee Code: <span className="font-semibold">{employeeCode}</span>
+            </p>
+          )}
+        </div>
         <div className="flex items-center space-x-3">
           <button
             onClick={handleSyncToCalendar}

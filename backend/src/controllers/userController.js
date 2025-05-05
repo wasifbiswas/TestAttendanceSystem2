@@ -138,6 +138,7 @@ export const getAttendanceSummary = asyncHandler(async (req, res) => {
       // Return the summary
       res.json({
         employee_id: employee._id,
+        employee_code: employee.employee_code,
         stats,
         leaveBalance,
       });

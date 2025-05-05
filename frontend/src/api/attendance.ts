@@ -17,6 +17,7 @@ export interface AttendanceSummary {
   stats: AttendanceStats;
   leaveBalance: LeaveBalance;
   employee_id?: string;  // Added to match the backend response
+  employee_code?: string; // Added for employee code display
 }
 
 export interface CheckInOutResponse {
