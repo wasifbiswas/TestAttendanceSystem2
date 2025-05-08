@@ -123,10 +123,22 @@ export const createEmployee = asyncHandler(async (req, res) => {
   // Generate employee code if not provided
   let finalEmployeeCode = employee_code;
   if (!finalEmployeeCode) {
-    const lastEmployee = await Employee.findOne().sort({ createdAt: -1 });
-    const lastCode = lastEmployee ? lastEmployee.employee_code : "EMP000";
-    const codeNumber = parseInt(lastCode.replace("EMP", ""), 10) + 1;
-    finalEmployeeCode = `EMP${codeNumber.toString().padStart(3, "0")}`;
+    // Find the last employee to get the last used employee code number
+    const lastEmployee = await Employee.findOne().sort({ employee_code: -1 });
+
+    if (
+      lastEmployee &&
+      lastEmployee.employee_code &&
+      lastEmployee.employee_code.startsWith("EMP")
+    ) {
+      // Extract the number part and increment it
+      const lastNumber =
+        parseInt(lastEmployee.employee_code.replace("EMP", "")) || 0;
+      finalEmployeeCode = `EMP${(lastNumber + 1).toString().padStart(4, "0")}`;
+    } else {
+      // Start with EMP0001 if no existing codes or format is different
+      finalEmployeeCode = "EMP0001";
+    }
   }
 
   // Create employee

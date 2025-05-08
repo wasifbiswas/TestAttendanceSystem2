@@ -218,10 +218,24 @@ export const assignDepartment = asyncHandler(async (req, res) => {
     await employee.save();
   } else {
     // Create a new employee profile for the user
-    // Generate employee code based on department name and user ID
-    const deptCode = department.dept_name.slice(0, 3).toUpperCase();
-    const userIdShort = userId.toString().slice(-4);
-    const employeeCode = `${deptCode}-${userIdShort}`;
+    // Generate employee code with "EMP" prefix followed by numbers
+    // Find the last employee to get the last used employee code number
+    const lastEmployee = await Employee.findOne().sort({ employee_code: -1 });
+
+    let employeeCode;
+    if (
+      lastEmployee &&
+      lastEmployee.employee_code &&
+      lastEmployee.employee_code.startsWith("EMP")
+    ) {
+      // Extract the number part and increment it
+      const lastNumber =
+        parseInt(lastEmployee.employee_code.replace("EMP", "")) || 0;
+      employeeCode = `EMP${(lastNumber + 1).toString().padStart(4, "0")}`;
+    } else {
+      // Start with EMP0001 if no existing codes or format is different
+      employeeCode = "EMP0001";
+    }
 
     employee = await Employee.create({
       user_id: userId,

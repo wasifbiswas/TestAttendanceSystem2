@@ -15,8 +15,11 @@ import {
   removeRoleFromUser,
   getUserRoles,
   getAllDepartments,
-  assignDepartmentToUser
+  assignDepartmentToUser,
+  deleteUser,
+  useAdminAPI
 } from '../api/admin';
+import { ArrowLeftIcon, FunnelIcon, XCircleIcon, TrashIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 interface Role {
   _id: string;
@@ -106,7 +109,9 @@ const getOptionColor = (deptName: string): string => {
 const UserManagement = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuthStore();
+  const { deleteEmployee } = useAdminAPI();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserWithRoles[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,6 +127,16 @@ const UserManagement = () => {
     message: '', 
     type: 'info' as 'success' | 'error' | 'info' 
   });
+  
+  // Filter states
+  const [filterRole, setFilterRole] = useState<string>('');
+  const [filterDepartment, setFilterDepartment] = useState<string>('');
+  const [filterEmployeeCode, setFilterEmployeeCode] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Add new state variables for delete confirmation
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
 
   useEffect(() => {
     // Check if user is admin, redirect to regular dashboard if not
@@ -133,6 +148,55 @@ const UserManagement = () => {
     // Fetch users and roles
     fetchData();
   }, [isAdmin, navigate]);
+
+  // Apply filters whenever users or filter values change
+  useEffect(() => {
+    applyFilters();
+  }, [users, filterRole, filterDepartment, filterEmployeeCode]);
+
+  const applyFilters = () => {
+    let result = [...users];
+    
+    // Filter by role
+    if (filterRole) {
+      result = result.filter(user => {
+        return user.assignedRoles.some(roleId => {
+          const role = roles.find(r => r._id === roleId);
+          return role && role.role_name === filterRole;
+        });
+      });
+    }
+    
+    // Filter by department
+    if (filterDepartment) {
+      result = result.filter(user => {
+        if (!user.employee || !user.employee.department) return false;
+        
+        const deptName = typeof user.employee.department === 'object' 
+          ? user.employee.department.dept_name
+          : user.employee.department;
+          
+        return deptName === filterDepartment;
+      });
+    }
+    
+    // Filter by employee code
+    if (filterEmployeeCode) {
+      const searchTerm = filterEmployeeCode.toLowerCase();
+      result = result.filter(user => {
+        return user.employee?.employee_code?.toLowerCase().includes(searchTerm);
+      });
+    }
+    
+    setFilteredUsers(result);
+  };
+
+  const clearFilters = () => {
+    setFilterRole('');
+    setFilterDepartment('');
+    setFilterEmployeeCode('');
+    setFilteredUsers(users);
+  };
 
   const fetchUserDetails = async (userId: string) => {
     try {
@@ -291,6 +355,83 @@ const UserManagement = () => {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      await deleteUser(userToDelete._id);
+      setToast({
+        visible: true,
+        message: 'User deleted successfully',
+        type: 'success'
+      });
+      // Close the modal
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      // Refresh the user list
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      // Show more specific error message if available from API
+      const errorMessage = error.response?.data?.message || 'Failed to delete user';
+      setToast({
+        visible: true,
+        message: errorMessage,
+        type: 'error'
+      });
+    }
+  };
+
+  // New function to handle employee profile deletion
+  const handleDeleteEmployeeProfile = async () => {
+    if (!userToDelete || !userToDelete.employee) return;
+    
+    try {
+      // Get the employee ID - check if it's a string or an object with _id property
+      const employeeId = typeof userToDelete.employee === 'object' && 'employee_code' in userToDelete.employee 
+        ? userToDelete.employee.employee_code
+        : null;
+      
+      if (!employeeId) {
+        setToast({
+          visible: true,
+          message: 'Employee ID not found',
+          type: 'error'
+        });
+        return;
+      }
+      
+      // Call the API to delete the employee profile
+      await deleteEmployee(employeeId);
+      
+      setToast({
+        visible: true,
+        message: 'Employee profile deleted successfully',
+        type: 'success'
+      });
+      
+      // Refresh the user list to update the UI
+      await fetchData();
+      
+      // Show success message and refresh the modal with updated data
+      const updatedUserToDelete = users.find(u => u._id === userToDelete._id);
+      if (updatedUserToDelete) {
+        setUserToDelete(updatedUserToDelete);
+      }
+      
+    } catch (error: any) {
+      console.error('Error deleting employee profile:', error);
+      
+      // Show more specific error message if available from API
+      const errorMessage = error.response?.data?.message || 'Failed to delete employee profile';
+      setToast({
+        visible: true,
+        message: errorMessage,
+        type: 'error'
+      });
+    }
+  };
+
   const showRoleManagement = (userId: string) => {
     setSelectedUser(userId);
     setShowRoleModal(true);
@@ -300,6 +441,11 @@ const UserManagement = () => {
     setSelectedUser(userId);
     setSelectedDepartment(null);
     setShowDeptModal(true);
+  };
+
+  const showDeleteConfirmation = (user: UserWithRoles) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
   };
 
   const confirmRoleAction = () => {
@@ -326,6 +472,11 @@ const UserManagement = () => {
     setShowDeptModal(false);
     setSelectedUser(null);
     setSelectedDepartment(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setUserToDelete(null);
   };
 
   const handleCreateUserSuccess = () => {
@@ -385,21 +536,133 @@ const UserManagement = () => {
         transition={{ duration: 0.5 }}
         className="mb-8 flex justify-between items-center"
       >
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            User Management
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Manage users and their roles
-          </p>
+        <div className="flex items-center space-x-4">
+          <button 
+            onClick={() => navigate('/admin')}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            aria-label="Back to admin dashboard"
+          >
+            <ArrowLeftIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+          </button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              User Management
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Manage users and their roles
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
-        >
-          Create New User
-        </button>
+        <div className="flex space-x-4">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-2 rounded-md flex items-center space-x-1 ${
+              showFilters ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 
+              'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+            }`}
+            aria-expanded={showFilters}
+            aria-label="Toggle filters"
+          >
+            <FunnelIcon className="w-5 h-5" />
+            <span className="hidden sm:inline">Filters</span>
+            {(filterRole || filterDepartment || filterEmployeeCode) && (
+              <span className="bg-blue-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                {[filterRole, filterDepartment, filterEmployeeCode].filter(Boolean).length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700"
+          >
+            Create New User
+          </button>
+        </div>
       </motion.div>
+
+      {/* Filter panel */}
+      {showFilters && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Filter Users</h2>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={clearFilters}
+                className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center space-x-1"
+                disabled={!filterRole && !filterDepartment && !filterEmployeeCode}
+              >
+                <XCircleIcon className="w-4 h-4" />
+                <span>Clear all</span>
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Role filter */}
+            <div>
+              <label htmlFor="role-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Filter by Role
+              </label>
+              <select
+                id="role-filter"
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">All Roles</option>
+                {roles.map(role => (
+                  <option key={role._id} value={role.role_name}>
+                    {role.role_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Department filter */}
+            <div>
+              <label htmlFor="dept-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Filter by Department
+              </label>
+              <select
+                id="dept-filter"
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">All Departments</option>
+                {departments.map(dept => (
+                  <option key={dept._id} value={dept.dept_name}>
+                    {dept.dept_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Employee code filter */}
+            <div>
+              <label htmlFor="emp-code-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Filter by Employee Code
+              </label>
+              <input
+                type="text"
+                id="emp-code-filter"
+                value={filterEmployeeCode}
+                onChange={(e) => setFilterEmployeeCode(e.target.value)}
+                placeholder="Search employee code..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </div>
+          <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Showing {filteredUsers.length} of {users.length} users
+          </div>
+        </motion.div>
+      )}
 
       {/* Toast notification */}
       <Toast
@@ -596,6 +859,80 @@ const UserManagement = () => {
         </div>
       )}
 
+      {/* Delete User Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center mb-4 text-red-600 dark:text-red-400">
+              <ExclamationTriangleIcon className="h-10 w-10 mr-4" />
+              <h2 className="text-xl font-semibold">Delete User</h2>
+            </div>
+
+            {userToDelete.employee?.employee_code ? (
+              <>
+                <div className="mb-6">
+                  <div className="p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 rounded-md mb-4">
+                    <p className="text-yellow-800 dark:text-yellow-300 font-medium">
+                      This user has an employee profile and cannot be deleted directly.
+                    </p>
+                    <p className="text-yellow-700 dark:text-yellow-400 mt-2 text-sm">
+                      Employee Code: <span className="font-mono bg-yellow-100 dark:bg-yellow-900/30 px-1 py-0.5 rounded">
+                        {userToDelete.employee.employee_code}
+                      </span>
+                    </p>
+                    <p className="text-yellow-700 dark:text-yellow-400 mt-2 text-sm">
+                      To delete this user, you must first delete their employee profile.
+                    </p>
+                  </div>
+                  
+                  <p className="text-gray-700 dark:text-gray-300">
+                    Are you sure you want to delete the employee profile for <span className="font-semibold">{userToDelete.full_name}</span>?
+                    <br/><span className="text-sm text-gray-500 dark:text-gray-400">This will remove all attendance records and leave history for this employee.</span>
+                  </p>
+                </div>
+                
+                <div className="flex justify-between space-x-3">
+                  <button
+                    onClick={cancelDelete}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteEmployeeProfile}
+                    className="flex-1 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+                  >
+                    Delete Employee Profile
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-6 text-gray-700 dark:text-gray-300">
+                  Are you sure you want to delete user <span className="font-semibold">{userToDelete.full_name}</span>?
+                  <br/><span className="text-sm text-gray-500 dark:text-gray-400 mt-1 block">This action cannot be undone.</span>
+                </p>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={cancelDelete}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteUser}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    Delete User
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Users Table */}
       <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -626,116 +963,145 @@ const UserManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {users.map((user, index) => (
-                <motion.tr 
-                  key={user._id}
-                  custom={index}
-                  initial="hidden"
-                  animate="visible"
-                  variants={fadeIn}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {user.full_name}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      @{user.username}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {user.email}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {user.employee?.employee_code ? (
-                      <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2.5 py-1 rounded text-sm font-medium">
-                        {user.employee.employee_code}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        Not Assigned
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {user.employee ? (
-                        typeof user.employee.department === 'object' ? 
-                          user.employee.department?.dept_name : 
-                          typeof user.employee.department === 'string' ?
-                            user.employee.department : 
-                            "Not Assigned"
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map((user, index) => (
+                  <motion.tr 
+                    key={user._id}
+                    custom={index}
+                    initial="hidden"
+                    animate="visible"
+                    variants={fadeIn}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {user.full_name}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        @{user.username}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {user.email}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.employee?.employee_code ? (
+                        <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2.5 py-1 rounded text-sm font-medium">
+                          {user.employee.employee_code}
+                        </span>
                       ) : (
-                        "Not Assigned"
-                      )}
-                      {user.employee?.designation && 
-                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                          {user.employee.designation}
-                        </div>
-                      }
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {user.assignedRoles.length > 0 ? (
-                        user.assignedRoles.map(roleId => {
-                          const role = roles.find(r => r._id === roleId);
-                          if (!role) return null;
-                          
-                          return (
-                            <span 
-                              key={roleId}
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full
-                                ${role.role_name.toUpperCase() === 'ADMIN' 
-                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                                  : role.role_name.toUpperCase() === 'MANAGER'
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                                  : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                }`}
-                            >
-                              {role.role_name}
-                            </span>
-                          );
-                        })
-                      ) : (
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                          No roles
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          Not Assigned
                         </span>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.is_active 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                    }`}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-y-2">
-                    <div className="flex space-x-4 justify-end">
-                      <button
-                        onClick={() => showRoleManagement(user._id)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                      >
-                        Manage Roles
-                      </button>
-                      
-                      {/* Department assignment button - only shown for users without a department */}
-                      {(!user.employee || !user.employee.department) && (
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {user.employee ? (
+                          typeof user.employee.department === 'object' ? 
+                            user.employee.department?.dept_name : 
+                            typeof user.employee.department === 'string' ?
+                              user.employee.department : 
+                              "Not Assigned"
+                        ) : (
+                          "Not Assigned"
+                        )}
+                        {user.employee?.designation && 
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            {user.employee.designation}
+                          </div>
+                        }
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-wrap gap-1">
+                        {user.assignedRoles.length > 0 ? (
+                          user.assignedRoles.map(roleId => {
+                            const role = roles.find(r => r._id === roleId);
+                            if (!role) return null;
+                            
+                            return (
+                              <span 
+                                key={roleId}
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                  ${role.role_name.toUpperCase() === 'ADMIN' 
+                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                                    : role.role_name.toUpperCase() === 'MANAGER'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                    : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                  }`}
+                              >
+                                {role.role_name}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                            No roles
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        user.is_active 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {user.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-y-2">
+                      <div className="flex space-x-4 justify-end">
                         <button
-                          onClick={() => showDepartmentManagement(user._id)}
-                          className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                          onClick={() => showRoleManagement(user._id)}
+                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                         >
-                          Assign Dept
+                          Manage Roles
                         </button>
-                      )}
-                    </div>
+                        
+                        {/* Department assignment button - only shown for users without a department */}
+                        {(!user.employee || !user.employee.department) && (
+                          <button
+                            onClick={() => showDepartmentManagement(user._id)}
+                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                          >
+                            Assign Dept
+                          </button>
+                        )}
+                        
+                        {/* Delete user button */}
+                        <button
+                          onClick={() => showDeleteConfirmation(user)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex items-center"
+                          title="Delete user"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
+                    {users.length > 0 ? (
+                      <>
+                        <p className="font-medium mb-2">No users match the selected filters</p>
+                        <button 
+                          onClick={clearFilters}
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                        >
+                          Clear filters
+                        </button>
+                      </>
+                    ) : (
+                      "No users found in the system"
+                    )}
                   </td>
-                </motion.tr>
-              ))}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

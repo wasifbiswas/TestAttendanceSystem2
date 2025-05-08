@@ -99,10 +99,29 @@ export const registerUser = asyncHandler(async (req, res) => {
               `Found department: ${departmentObj.dept_name} with ID: ${departmentObj._id}`
             );
 
-            // Generate employee code based on department name and user ID
-            const deptCode = departmentObj.dept_name.slice(0, 3).toUpperCase();
-            const userIdShort = user._id.toString().slice(-4);
-            const employeeCode = `${deptCode}-${userIdShort}`;
+            // Generate employee code in format "EMP" + numbers
+            const Employee = (await import("../models/Employee.js")).default;
+            // Find the last employee to get the last used employee code number
+            const lastEmployee = await Employee.findOne().sort({
+              employee_code: -1,
+            });
+
+            let employeeCode;
+            if (
+              lastEmployee &&
+              lastEmployee.employee_code &&
+              lastEmployee.employee_code.startsWith("EMP")
+            ) {
+              // Extract the number part and increment it
+              const lastNumber =
+                parseInt(lastEmployee.employee_code.replace("EMP", "")) || 0;
+              employeeCode = `EMP${(lastNumber + 1)
+                .toString()
+                .padStart(4, "0")}`;
+            } else {
+              // Start with EMP0001 if no existing codes or format is different
+              employeeCode = "EMP0001";
+            }
 
             // Create employee profile
             const employee = await Employee.create({

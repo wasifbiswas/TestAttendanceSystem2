@@ -321,3 +321,14 @@ export const assignDepartmentToUser = async (userId: string, departmentId: strin
   const response = await api.post(`/admin/users/${userId}/department`, { department_id: departmentId });
   return response.data;
 };
+
+/**
+ * Delete a user from the system
+ * Note: Cannot delete users with attached employee profiles
+ * @param userId - ID of the user to delete
+ * @returns Success response
+ */
+export const deleteUser = async (userId: string): Promise<{ message: string }> => {
+  const response = await api.delete(`/admin/users/${userId}`);
+  return response.data;
+};

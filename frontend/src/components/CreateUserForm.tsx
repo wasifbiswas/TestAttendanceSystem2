@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { getRoles, makeUserAdmin } from '../api/admin';
+import { getRoles, makeUserAdmin, getAllDepartments } from '../api/admin';
+// Import eye icons for password toggle
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+// Import axios instance
+import api from '../api/axios';
 
 // Form schema validation
 const userSchema = z.object({
@@ -9,31 +13,36 @@ const userSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   fullName: z.string().min(3, 'Full name must be at least 3 characters'),
+  department: z.string().min(1, 'Please select a department'),
+  gender: z.string().min(1, 'Please select a gender'),
   makeAdmin: z.boolean().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
 
-// API function to create a user
-const createUser = async (userData: Omit<UserFormData, 'makeAdmin'>) => {
-  const response = await fetch('/api/users', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(userData),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to create user');
+// API function to create a user - updated to use axios instance and correct endpoint
+const createUser = async (userData: any) => {
+  try {
+    // Using auth/register endpoint which is the correct endpoint for user creation
+    const response = await api.post('/auth/register', userData);
+    return response.data;
+  } catch (error: any) {
+    // Extract more detailed error message if available
+    const errorMessage = error.response?.data?.message || 'Failed to create user';
+    console.error('User creation error:', errorMessage);
+    throw new Error(errorMessage);
   }
-
-  return response.json();
 };
 
 interface CreateUserFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+}
+
+interface Department {
+  _id: string;
+  dept_name: string;
+  description: string;
 }
 
 const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
@@ -42,15 +51,40 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
     email: '',
     password: '',
     fullName: '',
+    department: '',
+    gender: '',
     makeAdmin: false,
   });
   
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  // Fetch departments when component mounts
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      setIsLoading(true);
+      try {
+        const departmentsData = await getAllDepartments();
+        setDepartments(departmentsData);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        setSubmitError('Failed to load departments. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -95,8 +129,15 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
     
     try {
       // Create the user
-      const { username, email, password, fullName, makeAdmin } = formData;
-      const userData = { username, email, password, full_name: fullName };
+      const { username, email, password, fullName, department, gender, makeAdmin } = formData;
+      const userData = { 
+        username, 
+        email, 
+        password, 
+        full_name: fullName,
+        department, // Including department ensures employee code generation
+        gender // Adding gender field to user creation
+      };
       
       const newUser = await createUser(userData);
       
@@ -112,9 +153,10 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
       }
       
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating user:', error);
-      setSubmitError('Failed to create user. Please try again.');
+      // Display more specific error message if available
+      setSubmitError(error.message || 'Failed to create user. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -188,20 +230,33 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:outline-none
-                ${errors.password 
-                  ? 'border-red-300 focus:ring-red-200 dark:border-red-700' 
-                  : 'border-gray-300 dark:border-gray-600 focus:ring-blue-200 dark:focus:ring-blue-900/30'
-                }
-                bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-              disabled={isSubmitting}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:outline-none
+                  ${errors.password 
+                    ? 'border-red-300 focus:ring-red-200 dark:border-red-700' 
+                    : 'border-gray-300 dark:border-gray-600 focus:ring-blue-200 dark:focus:ring-blue-900/30'
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                disabled={isSubmitting}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>
             )}
@@ -227,6 +282,65 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
             />
             {errors.fullName && (
               <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.fullName}</p>
+            )}
+          </div>
+          
+          <div>
+            <label htmlFor="department" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Department
+            </label>
+            <select
+              id="department"
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:outline-none
+                ${errors.department 
+                  ? 'border-red-300 focus:ring-red-200 dark:border-red-700' 
+                  : 'border-gray-300 dark:border-gray-600 focus:ring-blue-200 dark:focus:ring-blue-900/30'
+                }
+                bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              disabled={isSubmitting || isLoading}
+            >
+              <option value="">Select Department</option>
+              {departments.map((dept) => (
+                <option key={dept._id} value={dept.dept_name}>
+                  {dept.dept_name}
+                </option>
+              ))}
+            </select>
+            {errors.department && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.department}</p>
+            )}
+            {isLoading && (
+              <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">Loading departments...</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Gender
+            </label>
+            <select
+              id="gender"
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:outline-none
+                ${errors.gender 
+                  ? 'border-red-300 focus:ring-red-200 dark:border-red-700' 
+                  : 'border-gray-300 dark:border-gray-600 focus:ring-blue-200 dark:focus:ring-blue-900/30'
+                }
+                bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              disabled={isSubmitting}
+            >
+              <option value="">Select Gender</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+              <option value="OTHER">Other</option>
+            </select>
+            {errors.gender && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.gender}</p>
             )}
           </div>
           
@@ -258,7 +372,7 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
           <button
             type="submit"
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoading}
           >
             {isSubmitting ? 'Creating...' : 'Create User'}
           </button>
@@ -268,4 +382,4 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
   );
 };
 
-export default CreateUserForm; 
+export default CreateUserForm;
