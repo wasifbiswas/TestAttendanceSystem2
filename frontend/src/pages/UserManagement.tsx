@@ -207,9 +207,31 @@ const UserManagement = () => {
       // Extract the roles from the response
       const roles = response.data.roles || [];
       
+      // Format the employee data correctly including department information
+      let employee = null;
+      if (response.data.employee) {
+        employee = {
+          ...response.data.employee,
+          // Ensure department is properly structured for display
+          department: response.data.employee.dept_id 
+            ? {
+                _id: response.data.employee.dept_id._id,
+                dept_name: response.data.employee.dept_id.dept_name
+              }
+            : response.data.employee.department || null
+        };
+
+        // Add additional debug info
+        console.log(`Employee data for ${userId}:`, {
+          employee_code: employee.employee_code,
+          department: employee.department,
+          original: response.data.employee
+        });
+      }
+      
       return {
-        employee: response.data.employee,
-        roles: roles
+        employee,
+        roles
       };
     } catch (error) {
       console.error(`Error fetching details for user ${userId}:`, error);
@@ -387,23 +409,85 @@ const UserManagement = () => {
     if (!userToDelete || !userToDelete.employee) return;
     
     try {
-      // Get the employee ID - check if it's a string or an object with _id property
-      const employeeId = typeof userToDelete.employee === 'object' && 'employee_code' in userToDelete.employee 
-        ? userToDelete.employee.employee_code
-        : null;
+      // Get the employee ID by a safer approach that extracts the ID from any property
+      let employeeId = null;
       
+      // Debug the entire employee object
+      console.log("Employee object structure:", userToDelete.employee);
+      
+      if (userToDelete.employee) {
+        // Try direct properties or nested properties that might contain the employee ID
+        // Extract the first value that looks like a MongoDB ID (24 hex characters)
+        
+        // Define a helper function to extract the MongoDB ID from a value
+        const getMongoId = (value: any): string | null => {
+          if (typeof value === 'string' && /^[0-9a-f]{24}$/i.test(value)) {
+            return value; // Return the ID if it's a valid MongoDB ID
+          }
+          return null;
+        };
+        
+        // Helper function to extract IDs from an object recursively
+        const findMongoIdInObject = (obj: any): string | null => {
+          if (!obj || typeof obj !== 'object') return null;
+          
+          // Check explicitly named ID fields first
+          const commonIdFields = ['_id', 'id', 'employee_id', 'employeeId'];
+          for (const field of commonIdFields) {
+            if (obj[field]) {
+              const id = getMongoId(obj[field]);
+              if (id) {
+                console.log(`Found ID in field: ${field}`, id);
+                return id;
+              }
+            }
+          }
+          
+          // If not found in common fields, scan all fields recursively
+          for (const [key, value] of Object.entries(obj)) {
+            if (typeof value === 'string') {
+              const id = getMongoId(value);
+              if (id) {
+                console.log(`Found ID in field: ${key}`, id);
+                return id;
+              }
+            } else if (typeof value === 'object' && value !== null) {
+              // Recursively check nested objects
+              const id = findMongoIdInObject(value);
+              if (id) return id;
+            }
+          }
+          
+          return null;
+        };
+        
+        // Try to find a MongoDB ID in the employee object
+        employeeId = findMongoIdInObject(userToDelete.employee);
+      }
+      
+      // If still not found, try to extract from employee_code if present
+      if (!employeeId && userToDelete.employee && typeof userToDelete.employee === 'object' && 'employee_code' in userToDelete.employee) {
+        console.log("Trying to extract ID from employee code:", userToDelete.employee.employee_code);
+      }
+      
+      // If still not found, log the object structure for debugging
       if (!employeeId) {
+        console.error('Could not find a valid MongoDB ID in employee object:', JSON.stringify(userToDelete.employee, null, 2));
         setToast({
           visible: true,
-          message: 'Employee ID not found',
+          message: 'Could not find employee ID in the response data',
           type: 'error'
         });
         return;
       }
       
-      // Call the API to delete the employee profile
-      await deleteEmployee(employeeId);
+      console.log(`Attempting to delete employee with ID: ${employeeId}`);
       
+      // Call the API to delete the employee profile
+      const response = await deleteEmployee(employeeId);
+      console.log('Delete employee response:', response);
+      
+      // Show success message
       setToast({
         visible: true,
         message: 'Employee profile deleted successfully',
@@ -413,10 +497,28 @@ const UserManagement = () => {
       // Refresh the user list to update the UI
       await fetchData();
       
-      // Show success message and refresh the modal with updated data
-      const updatedUserToDelete = users.find(u => u._id === userToDelete._id);
-      if (updatedUserToDelete) {
-        setUserToDelete(updatedUserToDelete);
+      // Important fix: Get the completely fresh user data and update the modal
+      const userId = userToDelete._id;
+      
+      // Find the updated user data in the freshly fetched users list
+      const updatedUser = users.find(u => u._id === userId);
+      
+      if (updatedUser) {
+        // Update the modal with the fresh user data
+        setUserToDelete(updatedUser);
+        
+        // If the employee profile was successfully deleted,
+        // the updated user should no longer have an employee property
+        if (!updatedUser.employee) {
+          console.log("Employee profile successfully removed, user can now be deleted");
+        } else {
+          console.log("Warning: Employee profile may still be attached to the user", updatedUser);
+        }
+      } else {
+        // If we couldn't find the user, close the modal
+        console.log("User no longer found after deleting employee profile, closing modal");
+        setShowDeleteModal(false);
+        setUserToDelete(null);
       }
       
     } catch (error: any) {
@@ -998,20 +1100,19 @@ const UserManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {user.employee ? (
-                          typeof user.employee.department === 'object' ? 
-                            user.employee.department?.dept_name : 
-                            typeof user.employee.department === 'string' ?
-                              user.employee.department : 
-                              "Not Assigned"
+                        {user.employee && user.employee.department ? (
+                          typeof user.employee.department === 'object' && user.employee.department.dept_name ? 
+                            <span className="text-sm font-medium" style={{ color: getOptionColor(user.employee.department.dept_name) }}>
+                              {user.employee.department.dept_name}
+                            </span>
+                          : typeof user.employee.department === 'string' ?
+                              <span className="text-sm font-medium" style={{ color: getOptionColor(user.employee.department) }}>
+                                {user.employee.department}
+                              </span>
+                            : "Not Assigned"
                         ) : (
                           "Not Assigned"
                         )}
-                        {user.employee?.designation && 
-                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            {user.employee.designation}
-                          </div>
-                        }
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

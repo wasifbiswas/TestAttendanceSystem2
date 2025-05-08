@@ -71,7 +71,7 @@ export const useAdminAPI = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.delete(`/admin/employees/${id}`);
+      const response = await api.delete(`/employees/${id}`);
       setIsLoading(false);
       return response;
     } catch (err: any) {

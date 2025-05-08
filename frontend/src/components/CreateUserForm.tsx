@@ -130,16 +130,33 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
     try {
       // Create the user
       const { username, email, password, fullName, department, gender, makeAdmin } = formData;
+
+      // Find the selected department to get its name
+      const selectedDept = departments.find(dept => dept._id === department);
+      
+      if (!selectedDept) {
+        throw new Error("Selected department not found. Please try again.");
+      }
+      
+      console.log(`Creating user with department ID: ${department}, name: ${selectedDept.dept_name}`);
+      
       const userData = { 
         username, 
         email, 
         password, 
         full_name: fullName,
-        department, // Including department ensures employee code generation
+        // The backend expects 'department' to be the department name, not the ID
+        department: selectedDept.dept_name,
+        // Include department_id for compatibility with other APIs
+        department_id: department,
         gender // Adding gender field to user creation
       };
       
+      // Log the complete data being sent to the server for debugging
+      console.log("Sending user data to server:", userData);
+      
       const newUser = await createUser(userData);
+      console.log('User created:', newUser);
       
       // If makeAdmin is checked, assign admin role
       if (makeAdmin) {
@@ -304,7 +321,7 @@ const CreateUserForm = ({ onSuccess, onCancel }: CreateUserFormProps) => {
             >
               <option value="">Select Department</option>
               {departments.map((dept) => (
-                <option key={dept._id} value={dept.dept_name}>
+                <option key={dept._id} value={dept._id}>
                   {dept.dept_name}
                 </option>
               ))}
