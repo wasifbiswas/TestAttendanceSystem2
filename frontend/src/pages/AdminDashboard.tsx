@@ -506,7 +506,7 @@ const AdminDashboard = () => {
         className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-8"
       >
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Staff Summary by Role</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Employee Summary by Role</h3>
           <button 
             onClick={() => fetchRoleCounts()}
             className="text-blue-500 hover:text-blue-600 text-sm flex items-center"

@@ -61,7 +61,7 @@ const createEmployeeProfile = async () => {
         const employee = await Employee.create({
           user_id: user._id,
           dept_id: department._id,
-          designation: "Staff",
+          designation: "Employee",
           hire_date: user.join_date || new Date(),
           employee_code: employeeCode,
         });

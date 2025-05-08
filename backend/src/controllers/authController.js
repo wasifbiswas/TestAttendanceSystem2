@@ -128,7 +128,7 @@ export const registerUser = asyncHandler(async (req, res) => {
               user_id: user._id,
               dept_id: departmentObj._id,
               employee_code: employeeCode,
-              designation: "Staff", // Default designation
+              designation: "Employee", // Default designation
               join_date: new Date(),
             });
 

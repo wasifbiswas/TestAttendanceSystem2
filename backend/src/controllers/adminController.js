@@ -241,7 +241,7 @@ export const assignDepartment = asyncHandler(async (req, res) => {
       user_id: userId,
       dept_id: department_id,
       employee_code: employeeCode,
-      designation: "Staff", // Default designation
+      designation: "Employee", // Default designation
       join_date: new Date(),
     });
 

@@ -310,6 +310,10 @@ const UserManagement = () => {
         message: 'Role assigned successfully',
         type: 'success'
       });
+      // Close the modal after assigning role
+      setShowRoleModal(false);
+      setSelectedUser(null);
+      setSelectedRole(null);
       // Refresh the user list
       fetchData();
     } catch (error) {
@@ -330,6 +334,10 @@ const UserManagement = () => {
         message: 'Role removed successfully',
         type: 'success'
       });
+      // Close the modal after removing role
+      setShowRoleModal(false);
+      setSelectedUser(null);
+      setSelectedRole(null);
       // Refresh the user list
       fetchData();
     } catch (error) {
