@@ -494,32 +494,25 @@ const UserManagement = () => {
         type: 'success'
       });
       
-      // Refresh the user list to update the UI
+      // Store the user data in a temp variable before closing the modal
+      const userToDeleteAfterProfile = { ...userToDelete };
+      
+      // Remove the employee data from this user so it will show the regular delete interface
+      userToDeleteAfterProfile.employee = undefined;
+      
+      // Close the current modal
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      
+      // Refresh the user list first to ensure data is up to date
       await fetchData();
       
-      // Important fix: Get the completely fresh user data and update the modal
-      const userId = userToDelete._id;
-      
-      // Find the updated user data in the freshly fetched users list
-      const updatedUser = users.find(u => u._id === userId);
-      
-      if (updatedUser) {
-        // Update the modal with the fresh user data
-        setUserToDelete(updatedUser);
-        
-        // If the employee profile was successfully deleted,
-        // the updated user should no longer have an employee property
-        if (!updatedUser.employee) {
-          console.log("Employee profile successfully removed, user can now be deleted");
-        } else {
-          console.log("Warning: Employee profile may still be attached to the user", updatedUser);
-        }
-      } else {
-        // If we couldn't find the user, close the modal
-        console.log("User no longer found after deleting employee profile, closing modal");
-        setShowDeleteModal(false);
-        setUserToDelete(null);
-      }
+      // Show the user delete confirmation modal immediately after employee profile deletion
+      // Small delay to ensure state updates properly
+      setTimeout(() => {
+        setUserToDelete(userToDeleteAfterProfile);
+        setShowDeleteModal(true);
+      }, 100);
       
     } catch (error: any) {
       console.error('Error deleting employee profile:', error);
