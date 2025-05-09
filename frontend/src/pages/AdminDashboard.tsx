@@ -312,8 +312,8 @@ const AdminDashboard = () => {
           onClick={() => navigate('/admin/employees')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
         >
-          <FaUserPlus className="text-3xl text-blue-500 mb-2" />
-          <span className="font-medium">Add Employee</span>
+          <FaUsersCog className="text-3xl text-blue-500 mb-2" />
+          <span className="font-medium">Manage Employee</span>
         </button>
         
         <button
