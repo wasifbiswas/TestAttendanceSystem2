@@ -1077,7 +1077,7 @@ const generatePdfReport = async (
   doc.moveDown(2); // Determine table column widths based on content
   const pageWidth = doc.page.width - 2 * doc.page.margins.left;
   const columnWidths = [];
-  const columnCount = headers.length;  // Define minimum widths for specific columns that tend to have longer content
+  const columnCount = headers.length; // Define minimum widths for specific columns that tend to have longer content
   const minColumnWidths = {
     email: 165, // Email addresses can be quite long
     leaveType: 100, // Leave types like "Compensatory Leave" need more space
