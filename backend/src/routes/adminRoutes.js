@@ -10,6 +10,12 @@ import {
   getUserRoleCounts,
   assignDepartment,
 } from "../controllers/adminController.js";
+import {
+  generateAttendanceReport,
+  generateEmployeeReport,
+  generateLeaveReport,
+  generatePerformanceReport,
+} from "../controllers/reportController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { admin } from "../middleware/roleMiddleware.js";
 import { validate } from "../middleware/validationMiddleware.js";
@@ -204,5 +210,17 @@ router.get("/departments/stats", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch department statistics" });
   }
 });
+
+// Report generation routes
+router.get("/reports/attendance", generateAttendanceReport);
+router.get("/reports/employees", generateEmployeeReport);
+router.get("/reports/leaves", generateLeaveReport);
+router.get("/reports/performance", generatePerformanceReport);
+
+// Raw report data routes for client-side generation
+router.get("/reports/attendance/data", generateAttendanceReport);
+router.get("/reports/employees/data", generateEmployeeReport);
+router.get("/reports/leaves/data", generateLeaveReport);
+router.get("/reports/performance/data", generatePerformanceReport);
 
 export default router;

@@ -55,12 +55,116 @@ export const useManagerAPI = () => {
     }
   };
 
+  // Generate department attendance report
+  const getDepartmentAttendanceReport = async (
+    startDate: string,
+    endDate: string,
+    format: string = 'pdf'
+  ): Promise<Blob> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = { startDate, endDate, format };
+      const response = await api.get('/manager/reports/attendance', {
+        params,
+        responseType: 'blob'
+      });
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to generate department attendance report';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Generate department employee report
+  const getDepartmentEmployeeReport = async (format: string = 'pdf'): Promise<Blob> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = { format };
+      const response = await api.get('/manager/reports/employees', {
+        params,
+        responseType: 'blob'
+      });
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to generate department employee report';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+  // Generate department leave report
+  const getDepartmentLeaveReport = async (
+    startDate: string,
+    endDate: string,
+    format: string = 'pdf'
+  ): Promise<Blob> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = { startDate, endDate, format };
+      const response = await api.get('/manager/reports/leaves', {
+        params,
+        responseType: 'blob'
+      });
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to generate department leave report';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Approve a department leave request
+  const approveDepartmentLeaveRequest = async (leaveId: string): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.post(`/manager/leave-requests/${leaveId}/approve`);
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to approve leave request';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Deny a department leave request
+  const denyDepartmentLeaveRequest = async (leaveId: string): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.post(`/manager/leave-requests/${leaveId}/deny`);
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to deny leave request';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
   return {
     isLoading,
     error,
     getDepartmentStats,
     getDepartmentEmployees,
-    getDepartmentLeaveRequests
+    getDepartmentLeaveRequests,
+    approveDepartmentLeaveRequest,
+    denyDepartmentLeaveRequest,
+    getDepartmentAttendanceReport,
+    getDepartmentEmployeeReport,
+    getDepartmentLeaveReport
   };
 };
 
@@ -121,4 +225,4 @@ export const getDepartmentAttendanceReport = async (startDate: string, endDate: 
   const params = { startDate, endDate };
   const response = await api.get('/manager/reports/attendance', { params });
   return response.data;
-}; 
+};

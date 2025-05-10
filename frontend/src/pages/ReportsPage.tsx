@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaFileAlt, FaFileDownload, FaCalendarAlt } from 'react-icons/fa';
+import { FaArrowLeft, FaFileAlt, FaFileDownload, FaCalendarAlt, FaServer, FaLaptop } from 'react-icons/fa';
 import { useAdminAPI } from '../api/admin';
-import { useManagerAPI } from '../api/manager';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../components/ui/Toast';
+import { fetchDataAndGenerateReport, ReportFormat } from '../utils/reportGenerator';
 
 type ReportType = 'attendance' | 'employees' | 'leaves' | 'performance';
+type GenerationMode = 'server' | 'client';
 
 interface ReportOption {
   id: ReportType;
@@ -29,11 +30,16 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
   });
   const [format, setFormat] = useState<string>('pdf');
   const [loading, setLoading] = useState<boolean>(false);
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('server');
   
   const navigate = useNavigate();
-  const { showToast } = useToast();
-  const { generateAttendanceReport } = useAdminAPI();
-  const { getDepartmentAttendanceReport } = useManagerAPI();
+  const { showToast } = useToast();  const { 
+    generateAttendanceReport,
+    generateEmployeeReport,
+    generateLeaveReport,
+    generatePerformanceReport,
+    fetchReportData
+  } = useAdminAPI();
 
   const reportOptions: ReportOption[] = [
     {
@@ -98,6 +104,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
     }
   };
 
+  // Helper function to download a blob as a file
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
   const handleGenerateReport = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -106,35 +124,109 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
     setLoading(true);
     
     try {
-      // In a real implementation, call the appropriate API based on department restriction
-      if (departmentOnly) {
-        // Call manager API for department-specific report
-        // await getDepartmentAttendanceReport(
-        //   dateRange.startDate,
-        //   dateRange.endDate
-        // );
+      const reportName = getReportName(selectedReport);
+      const timestamp = new Date().toISOString().split('T')[0];
+      const fileName = `${reportName.replace(/\s+/g, '_')}_${timestamp}.${format}`;
+      let reportBlob: Blob;
+        if (generationMode === 'client') {
+        // Fetch data for client-side report generation
+        const params = {
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          departmentId: departmentOnly ? department : undefined
+        };
+        
+        // First fetch the raw data from the API
+        const reportData = await fetchReportData(selectedReport, params);
+          // Then generate the report in the browser using the utility functions
+        const { blob } = await fetchDataAndGenerateReport(
+          selectedReport,
+          format as ReportFormat,
+          {
+            apiEndpoint: `/admin/reports/${selectedReport}`,
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            departmentId: departmentOnly ? department : undefined,
+            departmentName: departmentOnly ? department : undefined,
+            // Pass the already fetched data to avoid double API calls
+            reportData
+          }
+        );
+        
+        reportBlob = blob;
       } else {
-        // Call admin API for full report
-        // await generateAttendanceReport(
-        //   dateRange.startDate,
-        //   dateRange.endDate
-        // );
+        // Use server-side report generation via API
+        if (departmentOnly && department) {
+          switch (selectedReport) {
+            case 'attendance':
+              reportBlob = await generateAttendanceReport(
+                dateRange.startDate,
+                dateRange.endDate,
+                format,
+                department
+              );
+              break;
+            case 'employees':
+              reportBlob = await generateEmployeeReport(format, department);
+              break;
+            case 'leaves':
+              reportBlob = await generateLeaveReport(
+                dateRange.startDate,
+                dateRange.endDate,
+                format,
+                department
+              );
+              break;
+            default:
+              throw new Error('Invalid report type for department manager');
+          }
+        } else {
+          // Admin full report generation
+          switch (selectedReport) {
+            case 'attendance':
+              reportBlob = await generateAttendanceReport(
+                dateRange.startDate,
+                dateRange.endDate,
+                format
+              );
+              break;
+            case 'employees':
+              reportBlob = await generateEmployeeReport(format);
+              break;
+            case 'leaves':
+              reportBlob = await generateLeaveReport(
+                dateRange.startDate,
+                dateRange.endDate,
+                format
+              );
+              break;
+            case 'performance':
+              reportBlob = await generatePerformanceReport(
+                dateRange.startDate,
+                dateRange.endDate,
+                format
+              );
+              break;
+            default:
+              throw new Error('Invalid report type');
+          }
+        }
       }
       
-      // Mock successful generation with a delay
-      setTimeout(() => {
-        showToast({
-          message: `${getReportName(selectedReport)} generated successfully`,
-          type: 'success'
-        });
-        setLoading(false);
-      }, 2000);
+      // Download the generated report
+      downloadBlob(reportBlob, fileName);
       
-    } catch (error) {
       showToast({
-        message: 'Failed to generate report',
+        message: `${getReportName(selectedReport)} generated and downloaded successfully`,
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Report generation error:', error);
+      showToast({
+        message: 'Failed to generate report. Please try again.',
         type: 'error'
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -170,8 +262,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
       ))}
     </div>
   );
-  
-  const ReportConfigForm = () => {
+    const ReportConfigForm = () => {
     const selectedReportOption = reportOptions.find(option => option.id === selectedReport);
     
     if (!selectedReportOption) return null;
@@ -195,38 +286,80 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
         
         <form onSubmit={handleGenerateReport}>
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={dateRange.startDate}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  aria-label="Start Date"
-                />
+            {/* Processing mode selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Report Generation Mode
+              </label>
+              <div className="flex space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setGenerationMode('server')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    generationMode === 'server'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <FaServer className="mr-2" />
+                  Server-side
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGenerationMode('client')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    generationMode === 'client'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <FaLaptop className="mr-2" />
+                  Client-side
+                </button>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={dateRange.endDate}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  aria-label="End Date"
-                />
-              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {generationMode === 'server' 
+                  ? 'Server-side: Reports are generated on the server which handles large datasets better.'
+                  : 'Client-side: Reports are generated in your browser for faster processing with fewer server resources.'}
+              </p>
             </div>
             
+            {/* Date range selection */}
+            {selectedReport !== 'employees' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    name="startDate"
+                    value={dateRange.startDate}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    aria-label="Start Date"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    name="endDate"
+                    value={dateRange.endDate}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    aria-label="End Date"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Format selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Report Format
@@ -253,7 +386,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
               className={`w-full flex justify-center items-center px-4 py-2 rounded-md text-white
                 ${loading
                   ? 'bg-blue-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                  : generationMode === 'client'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
                 }`}
             >
               {loading ? (
@@ -267,7 +402,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
               ) : (
                 <>
                   <FaFileDownload className="mr-2" />
-                  Generate Report
+                  Generate & Download Report {generationMode === 'client' ? '(Client-side)' : ''}
                 </>
               )}
             </button>
@@ -281,9 +416,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center mb-6">
         <button
-          onClick={() => navigate('/admin')}
+          onClick={() => navigate(departmentOnly ? '/manager' : '/admin')}
           className="mr-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"
-          aria-label="Go back to admin dashboard"
+          aria-label={departmentOnly ? "Go back to manager dashboard" : "Go back to admin dashboard"}
         >
           <FaArrowLeft className="text-xl" />
         </button>
@@ -297,4 +432,4 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ departmentOnly = false }) => 
   );
 };
 
-export default ReportsPage; 
+export default ReportsPage;

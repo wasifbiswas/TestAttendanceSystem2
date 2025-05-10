@@ -43,11 +43,15 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
     position: '',
     password: ''
   });
+  
+  // API hooks as complete objects to avoid unused variable warnings
+  const adminAPI = useAdminAPI();
+  const managerAPI = useManagerAPI();
+  
+  // Flag to toggle between mock data and real API
+  const useMockData = true;
 
-  const { getEmployees, createEmployee, updateEmployee, deleteEmployee } = useAdminAPI();
-  const { getDepartmentEmployees } = useManagerAPI();
-
-  // Mock data for initial development
+  // Mock data for development
   const mockEmployees: Employee[] = [
     {
       id: '1',
@@ -79,34 +83,44 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
   ];
 
   useEffect(() => {
-    // Fetch employees from API (using mock data for now)
     fetchEmployees();
-  }, [departmentOnly]);
-
+  }, [departmentOnly]);  
+  
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      // In a real implementation:
-      // const response = departmentOnly 
-      //   ? await getDepartmentEmployees() 
-      //   : await getEmployees();
-      // setEmployees(response.data);
-      
-      // Using mock data for now
-      setTimeout(() => {
-        if (departmentOnly && department) {
-          // Filter by the manager's department
-          const filteredEmployees = mockEmployees.filter(
-            emp => emp.department.toLowerCase() === department.toLowerCase()
-          );
-          setEmployees(filteredEmployees);
+      if (!useMockData) {
+        // Use real API
+        if (departmentOnly) {
+          // Manager API returns the data directly
+          const fetchedEmployees = await managerAPI.getDepartmentEmployees();
+          if (fetchedEmployees) {
+            setEmployees(fetchedEmployees);
+          }
         } else {
-          setEmployees(mockEmployees);
+          // Admin API returns the full Axios response
+          const response = await adminAPI.getEmployees();
+          if (response && response.data) {
+            setEmployees(response.data);
+          }
         }
-        setLoading(false);
-      }, 1000);
+      } else {
+        // Use mock data
+        setTimeout(() => {
+          if (departmentOnly && department) {
+            // Filter by the manager's department
+            const filteredEmployees = mockEmployees.filter(
+              emp => emp.department.toLowerCase() === department.toLowerCase()
+            );
+            setEmployees(filteredEmployees);
+          } else {
+            setEmployees(mockEmployees);
+          }
+        }, 1000);
+      }
     } catch (error) {
       showToast('Failed to fetch employees', 'error');
+    } finally {
       setLoading(false);
     }
   };
@@ -138,24 +152,27 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
         ? { ...formData, department }
         : formData;
 
-      // Mock successful addition
-      const newEmployee: Employee = {
-        id: Date.now().toString(),
-        name: employeeData.name,
-        email: employeeData.email,
-        department: employeeData.department,
-        position: employeeData.position,
-        joinDate: new Date().toISOString().split('T')[0],
-        status: 'active'
-      };
-
-      // In real implementation, you would call the API
-      // await createEmployee(employeeData);
+      if (!useMockData) {
+        // Use real API
+        await adminAPI.createEmployee(employeeData);
+        await fetchEmployees(); // Refresh the list
+      } else {
+        // Mock implementation
+        const newEmployee: Employee = {
+          id: Date.now().toString(),
+          name: employeeData.name,
+          email: employeeData.email,
+          department: employeeData.department,
+          position: employeeData.position,
+          joinDate: new Date().toISOString().split('T')[0],
+          status: 'active'
+        };
+        
+        setEmployees([...employees, newEmployee]);
+      }
       
-      setEmployees([...employees, newEmployee]);
       resetForm();
       setIsAddingEmployee(false);
-      
       showToast('Employee added successfully', 'success');
     } catch (error) {
       showToast('Failed to add employee', 'error');
@@ -185,26 +202,28 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
         ? { ...formData, department }
         : formData;
 
-      // Mock successful update
-      const updatedEmployee: Employee = {
-        ...currentEmployee,
-        name: employeeData.name,
-        email: employeeData.email,
-        department: employeeData.department,
-        position: employeeData.position
-      };
-
-      // In real implementation, you would call the API
-      // await updateEmployee(currentEmployee.id, employeeData);
-      
-      setEmployees(employees.map(emp => 
-        emp.id === currentEmployee.id ? updatedEmployee : emp
-      ));
+      if (!useMockData) {
+        // Use real API
+        await adminAPI.updateEmployee(currentEmployee.id, employeeData);
+        await fetchEmployees(); // Refresh the list
+      } else {
+        // Mock implementation
+        const updatedEmployee: Employee = {
+          ...currentEmployee,
+          name: employeeData.name,
+          email: employeeData.email,
+          department: employeeData.department,
+          position: employeeData.position
+        };
+        
+        setEmployees(employees.map(emp => 
+          emp.id === currentEmployee.id ? updatedEmployee : emp
+        ));
+      }
       
       resetForm();
       setIsEditingEmployee(false);
       setCurrentEmployee(null);
-      
       showToast('Employee updated successfully', 'success');
     } catch (error) {
       showToast('Failed to update employee', 'error');
@@ -214,10 +233,14 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
   const handleDeleteEmployee = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       try {
-        // In real implementation, you would call the API
-        // await deleteEmployee(id);
-        
-        setEmployees(employees.filter(emp => emp.id !== id));
+        if (!useMockData) {
+          // Use real API
+          await adminAPI.deleteEmployee(id);
+          await fetchEmployees(); // Refresh the list
+        } else {
+          // Mock implementation
+          setEmployees(employees.filter(emp => emp.id !== id));
+        }
         
         showToast('Employee deleted successfully', 'success');
       } catch (error) {
@@ -504,4 +527,4 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
   );
 };
 
-export default EmployeeManagement; 
+export default EmployeeManagement;
