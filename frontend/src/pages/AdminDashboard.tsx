@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useNotificationStore } from '../store/notificationStore';
 import Toast from '../components/Toast';
 import { AdminStats } from '../types';
 import { 
@@ -13,8 +14,9 @@ import {
   getUserRoleCounts
 } from '../api/admin';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars, FaBriefcase, FaBuilding, FaUsersCog } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars, FaBriefcase, FaBuilding, FaUsersCog, FaBell } from 'react-icons/fa';
 import LeaveDetailModal from '../components/admin/LeaveDetailModal';
+import NotificationForm from '../components/NotificationForm';
 import { hasDateChangedInIndianTimezone, getStartOfDayTimestampInIndianTimezone } from '../utils/dateUtils';
 
 // Key for storing the last check date in localStorage
@@ -29,11 +31,11 @@ const GENDER_SPECIFIC_LEAVES = {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { user, logout, isAdmin } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
   const [departmentStats, setDepartmentStats] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [roleCounts, setRoleCounts] = useState<{
+  const [isLoading, setIsLoading] = useState(true);  const [roleCounts, setRoleCounts] = useState<{
     employees: { count: number, ids: string[] },
     managers: { count: number, ids: string[] },
     admins: { count: number, ids: string[] }
@@ -49,12 +51,12 @@ const AdminDashboard = () => {
   });
   // State variables for leave detail modal
   const [isLeaveDetailModalOpen, setIsLeaveDetailModalOpen] = useState(false);
-  const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
-  // State to track if attendance has been reset for the day
+  const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);  // State to track if attendance has been reset for the day
   const [attendanceResetForToday, setAttendanceResetForToday] = useState(false);
-  const [refreshingStats, setRefreshingStats] = useState(false);
   const [refreshingDeptStats, setRefreshingDeptStats] = useState(false);
   const [refreshingRoleCounts, setRefreshingRoleCounts] = useState(false);
+  // New state for notification form
+  const [isNotificationFormOpen, setIsNotificationFormOpen] = useState(false);
 
   const { getAdminStats: useAdminStats } = useAdminAPI();
 
@@ -95,9 +97,9 @@ const AdminDashboard = () => {
     fetchDepartmentStats();
     fetchRoleCounts();
   }, [isAdmin, navigate]);
-
   const fetchAdminStats = async () => {
-    setRefreshingStats(true);
+    // We'll use setIsLoading instead of setRefreshingStats
+    setIsLoading(true);
     try {
       const data = await useAdminStats();
       
@@ -125,10 +127,8 @@ const AdminDashboard = () => {
         visible: true,
         message: 'Failed to fetch admin statistics',
         type: 'error'
-      });
-    } finally {
+      });    } finally {
       setIsLoading(false);
-      setTimeout(() => setRefreshingStats(false), 1000);
     }
   };
 
@@ -229,10 +229,9 @@ const AdminDashboard = () => {
       setTimeout(() => setRefreshingRoleCounts(false), 1000);
     }
   };
-
   const handleApproveLeave = async (leaveId: string) => {
     try {
-      const response = await approveLeaveRequest(leaveId);
+      await approveLeaveRequest(leaveId);
       setToast({
         visible: true,
         message: 'Leave request approved successfully. Leave balance updated.',
@@ -307,7 +306,7 @@ const AdminDashboard = () => {
   // Admin action buttons section
   const renderAdminActions = () => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <button
           onClick={() => navigate('/admin/employees')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
@@ -338,6 +337,18 @@ const AdminDashboard = () => {
         >
           <FaCalendarAlt className="text-3xl text-orange-500 mb-2" />
           <span className="font-medium">Manage Holidays</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/notifications')}
+          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300 relative"
+        >          <FaBell className="text-3xl text-yellow-500 mb-2" />
+          {unreadCount > 0 && (
+            <span className="absolute top-4 right-4 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {unreadCount}
+            </span>
+          )}
+          <span className="font-medium">Notifications</span>
         </button>
       </div>
     );
@@ -395,6 +406,13 @@ const AdminDashboard = () => {
             </svg>
             Logout
           </button>
+          <button
+            onClick={() => setIsNotificationFormOpen(true)}
+            className="bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center"
+          >
+            <FaBell className="h-5 w-5 mr-2" />
+            Send Notification
+          </button>
         </div>
       </motion.div>
 
@@ -412,6 +430,12 @@ const AdminDashboard = () => {
         isOpen={isLeaveDetailModalOpen}
         onClose={() => setIsLeaveDetailModalOpen(false)}
         leaveId={selectedLeaveId}
+      />
+
+      {/* Notification Form Modal */}
+      <NotificationForm
+        isOpen={isNotificationFormOpen}
+        onClose={() => setIsNotificationFormOpen(false)}
       />
 
       {/* Summary cards */}

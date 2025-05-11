@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useNotificationStore } from '../store/notificationStore';
 import Toast from '../components/Toast';
 import { 
   getDepartmentStats, 
@@ -12,7 +13,8 @@ import {
   useManagerAPI
 } from '../api/manager';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaUsers, FaCalendarAlt } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaUsers, FaCalendarAlt, FaBell } from 'react-icons/fa';
+import NotificationForm from '../components/NotificationForm';
 
 interface DepartmentStats {
   departmentName: string;
@@ -28,6 +30,7 @@ interface DepartmentStats {
 const ManagerDashboard = () => {
   const navigate = useNavigate();
   const { user, logout, isManager, department } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
   const [stats, setStats] = useState<DepartmentStats | null>(null);
   const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
   const [departmentEmployees, setDepartmentEmployees] = useState<any[]>([]);
@@ -41,6 +44,8 @@ const ManagerDashboard = () => {
   const [refreshingStats, setRefreshingStats] = useState(false);
   const [refreshingLeaves, setRefreshingLeaves] = useState(false);
   const [refreshingEmployees, setRefreshingEmployees] = useState(false);
+  // State for notification form modal
+  const [isNotificationFormOpen, setIsNotificationFormOpen] = useState(false);
 
   useEffect(() => {
     // Check if user is manager, redirect to regular dashboard if not
@@ -165,7 +170,7 @@ const ManagerDashboard = () => {
   // Manager action buttons section
   const renderManagerActions = () => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <button
           onClick={() => navigate('/manager/employees')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
@@ -188,6 +193,18 @@ const ManagerDashboard = () => {
         >
           <FaCalendarAlt className="text-3xl text-purple-500 mb-2" />
           <span className="font-medium">Manage Schedule</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/notifications')}
+          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300 relative"
+        >          <FaBell className="text-3xl text-yellow-500 mb-2" />
+          {unreadCount > 0 && (
+            <span className="absolute top-4 right-4 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {unreadCount}
+            </span>
+          )}
+          <span className="font-medium">Notifications</span>
         </button>
       </div>
     );
@@ -216,16 +233,14 @@ const ManagerDashboard = () => {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Welcome, {user?.full_name || 'Manager'}
           </p>
-        </div>
-        <div className="flex space-x-4">
+        </div>        <div className="flex space-x-4">
           <button
             onClick={() => navigate('/department/schedule')}
             className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-600 transition-colors text-sm font-medium flex items-center"
           >
             <FaCalendarAlt className="h-5 w-5 mr-2" />
             Department Schedule
-          </button>
-          <button
+          </button>          <button
             onClick={() => navigate('/attendance-logs')}
             className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
           >
@@ -233,6 +248,20 @@ const ManagerDashboard = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
             Attendance Logs
+          </button>
+          <button
+            onClick={() => navigate('/notifications')}
+            className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
+          >
+            <FaBell className="h-5 w-5 mr-2" />
+            Notifications
+          </button>
+          <button
+            onClick={() => setIsNotificationFormOpen(true)}
+            className="bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center"
+          >
+            <FaBell className="h-5 w-5 mr-2" />
+            Send Notification
           </button>
           <button
             onClick={handleLogout}
@@ -253,6 +282,12 @@ const ManagerDashboard = () => {
         isVisible={toast.visible}
         onClose={() => setToast({ ...toast, visible: false })}
         duration={5000}
+      />
+
+      {/* Notification Form Modal */}
+      <NotificationForm
+        isOpen={isNotificationFormOpen}
+        onClose={() => setIsNotificationFormOpen(false)}
       />
 
       {/* Summary cards */}

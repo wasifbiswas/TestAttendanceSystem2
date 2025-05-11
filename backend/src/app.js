@@ -13,6 +13,7 @@ import departmentRoutes from "./routes/departmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 // Load environment variables
 dotenv.config();
@@ -47,6 +48,7 @@ app.use("/api/departments", departmentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Error handling middleware
 app.use(notFound);

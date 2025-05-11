@@ -13,7 +13,10 @@ import SystemSettings from './pages/SystemSettings';
 import HolidayManagement from './pages/HolidayManagement';
 import DepartmentSchedule from './pages/DepartmentSchedule';
 import AttendanceLogs from './pages/AttendanceLogs';
+import NotificationsPage from './pages/NotificationsPage';
 import RoleDebugger from './components/RoleDebugger';
+import Layout from './components/Layout';
+import MinimalLayout from './components/MinimalLayout';
 import { GoogleCalendarProvider } from './context/GoogleCalendarContext';
 
 // Protected route component
@@ -97,79 +100,109 @@ function App() {
             isAuthenticated ? <Navigate to={getRedirectPath()} replace /> : <Register />
           } />
 
-          {/* Protected routes */}
-          <Route path="/dashboard" element={
+          {/* Protected routes */}          <Route path="/dashboard" element={
             <ProtectedRoute>
-              <Dashboard />
+              <MinimalLayout>
+                <Dashboard />
+              </MinimalLayout>
             </ProtectedRoute>
           } />
           
           <Route path="/attendance-logs" element={
             <ProtectedRoute>
-              <AttendanceLogs />
+              <Layout>
+                <AttendanceLogs />
+              </Layout>
             </ProtectedRoute>
           } />
 
           {/* Admin routes */}
           <Route path="/admin" element={
             <AdminRoute>
-              <AdminDashboard />
+              <Layout>
+                <AdminDashboard />
+              </Layout>
             </AdminRoute>
           } />
           
           <Route path="/admin/users" element={
             <AdminRoute>
-              <UserManagement />
+              <Layout>
+                <UserManagement />
+              </Layout>
             </AdminRoute>
           } />
 
           <Route path="/admin/employees" element={
             <AdminRoute>
-              <EmployeeManagement />
+              <Layout>
+                <EmployeeManagement />
+              </Layout>
             </AdminRoute>
           } />
 
           <Route path="/admin/reports" element={
             <AdminRoute>
-              <ReportsPage />
+              <Layout>
+                <ReportsPage />
+              </Layout>
             </AdminRoute>
           } />
 
           <Route path="/admin/settings" element={
             <AdminRoute>
-              <SystemSettings />
+              <Layout>
+                <SystemSettings />
+              </Layout>
             </AdminRoute>
           } />
 
           <Route path="/admin/holidays" element={
             <AdminRoute>
-              <HolidayManagement />
+              <Layout>
+                <HolidayManagement />
+              </Layout>
             </AdminRoute>
           } />
 
           {/* Manager routes */}
           <Route path="/manager" element={
             <ManagerRoute>
-              <ManagerDashboard />
+              <Layout>
+                <ManagerDashboard />
+              </Layout>
             </ManagerRoute>
           } />
 
           <Route path="/manager/employees" element={
             <ManagerRoute>
-              <EmployeeManagement departmentOnly={true} />
+              <Layout>
+                <EmployeeManagement departmentOnly={true} />
+              </Layout>
             </ManagerRoute>
           } />
 
           <Route path="/manager/reports" element={
             <ManagerRoute>
-              <ReportsPage departmentOnly={true} />
+              <Layout>
+                <ReportsPage departmentOnly={true} />
+              </Layout>
+            </ManagerRoute>
+          } />          <Route path="/manager/schedule" element={
+            <ManagerRoute>
+              <Layout>
+                <DepartmentSchedule />
+              </Layout>
             </ManagerRoute>
           } />
 
-          <Route path="/manager/schedule" element={
-            <ManagerRoute>
-              <DepartmentSchedule />
-            </ManagerRoute>
+          {/* Shared routes */}
+          <Route path="/notifications" element={
+            <ProtectedRoute>
+              <Layout>
+                <NotificationsPage />
+              </Layout>
+            </ProtectedRoute>
           } />
 
           {/* Redirect root to admin, manager, dashboard, or login based on authentication status */}
