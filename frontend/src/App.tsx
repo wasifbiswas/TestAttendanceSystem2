@@ -15,7 +15,6 @@ import DepartmentSchedule from './pages/DepartmentSchedule';
 import AttendanceLogs from './pages/AttendanceLogs';
 import NotificationsPage from './pages/NotificationsPage';
 import RoleDebugger from './components/RoleDebugger';
-import Layout from './components/Layout';
 import MinimalLayout from './components/MinimalLayout';
 import { GoogleCalendarProvider } from './context/GoogleCalendarContext';
 
@@ -107,101 +106,95 @@ function App() {
               </MinimalLayout>
             </ProtectedRoute>
           } />
-          
-          <Route path="/attendance-logs" element={
+            <Route path="/attendance-logs" element={
             <ProtectedRoute>
-              <Layout>
+              <MinimalLayout>
                 <AttendanceLogs />
-              </Layout>
+              </MinimalLayout>
             </ProtectedRoute>
-          } />
-
-          {/* Admin routes */}
+          } />{/* Admin routes */}
           <Route path="/admin" element={
             <AdminRoute>
-              <Layout>
+              <MinimalLayout>
                 <AdminDashboard />
-              </Layout>
+              </MinimalLayout>
             </AdminRoute>
           } />
-          
-          <Route path="/admin/users" element={
+            <Route path="/admin/users" element={
             <AdminRoute>
-              <Layout>
+              <MinimalLayout>
                 <UserManagement />
-              </Layout>
+              </MinimalLayout>
             </AdminRoute>
           } />
 
           <Route path="/admin/employees" element={
             <AdminRoute>
-              <Layout>
+              <MinimalLayout>
                 <EmployeeManagement />
-              </Layout>
+              </MinimalLayout>
             </AdminRoute>
           } />
 
           <Route path="/admin/reports" element={
             <AdminRoute>
-              <Layout>
+              <MinimalLayout>
                 <ReportsPage />
-              </Layout>
+              </MinimalLayout>
             </AdminRoute>
           } />
 
           <Route path="/admin/settings" element={
             <AdminRoute>
-              <Layout>
+              <MinimalLayout>
                 <SystemSettings />
-              </Layout>
+              </MinimalLayout>
             </AdminRoute>
           } />
 
           <Route path="/admin/holidays" element={
             <AdminRoute>
-              <Layout>
+              <MinimalLayout>
                 <HolidayManagement />
-              </Layout>
+              </MinimalLayout>
             </AdminRoute>
-          } />
-
-          {/* Manager routes */}
+          } />          {/* Manager routes */}
           <Route path="/manager" element={
             <ManagerRoute>
-              <Layout>
+              <MinimalLayout>
                 <ManagerDashboard />
-              </Layout>
+              </MinimalLayout>
             </ManagerRoute>
           } />
 
           <Route path="/manager/employees" element={
             <ManagerRoute>
-              <Layout>
+              <MinimalLayout>
                 <EmployeeManagement departmentOnly={true} />
-              </Layout>
+              </MinimalLayout>
             </ManagerRoute>
           } />
 
           <Route path="/manager/reports" element={
             <ManagerRoute>
-              <Layout>
+              <MinimalLayout>
                 <ReportsPage departmentOnly={true} />
-              </Layout>
+              </MinimalLayout>
             </ManagerRoute>
           } />          <Route path="/manager/schedule" element={
             <ManagerRoute>
-              <Layout>
+              <MinimalLayout>
                 <DepartmentSchedule />
-              </Layout>
+              </MinimalLayout>
             </ManagerRoute>
           } />
 
           {/* Shared routes */}
           <Route path="/notifications" element={
             <ProtectedRoute>
-              <Layout>
+              <MinimalLayout>
                 <NotificationsPage />
-              </Layout>
+              </MinimalLayout>
             </ProtectedRoute>
           } />
 

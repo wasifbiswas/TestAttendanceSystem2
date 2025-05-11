@@ -6,9 +6,11 @@ interface LeaveDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   leaveId: string | null;
+  onApprove?: (leaveId: string) => Promise<void>;
+  onDeny?: (leaveId: string) => Promise<void>;
 }
 
-const LeaveDetailModal = ({ isOpen, onClose, leaveId }: LeaveDetailModalProps) => {
+const LeaveDetailModal = ({ isOpen, onClose, leaveId, onApprove, onDeny }: LeaveDetailModalProps) => {
   const [leaveDetails, setLeaveDetails] = useState<DetailedLeaveRequest | null>(null);
   const [leaveBalances, setLeaveBalances] = useState<EmployeeLeaveBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -224,8 +226,35 @@ const LeaveDetailModal = ({ isOpen, onClose, leaveId }: LeaveDetailModalProps) =
                           ))}
                         </tbody>
                       </table>
+                    </div>                  </div>
+                  
+                  {/* Approval/Rejection Buttons - only show for pending leave requests */}
+                  {leaveDetails?.status === 'PENDING' && onApprove && onDeny && (
+                    <div className="mt-6 flex justify-end space-x-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+                      <button
+                        onClick={() => {
+                          if (leaveId && onDeny) {
+                            onDeny(leaveId);
+                            onClose();
+                          }
+                        }}
+                        className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                      >
+                        Deny Leave
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (leaveId && onApprove) {
+                            onApprove(leaveId);
+                            onClose();
+                          }
+                        }}
+                        className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                      >
+                        Approve Leave
+                      </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>

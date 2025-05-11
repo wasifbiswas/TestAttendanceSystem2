@@ -14,9 +14,10 @@ import {
   getUserRoleCounts
 } from '../api/admin';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars, FaBriefcase, FaBuilding, FaUsersCog, FaBell } from 'react-icons/fa';
+import { FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars, FaBuilding, FaUsersCog, FaBell, FaSignOutAlt } from 'react-icons/fa';
 import LeaveDetailModal from '../components/admin/LeaveDetailModal';
 import NotificationForm from '../components/NotificationForm';
+import NotificationDrawer from '../components/NotificationDrawer';
 import { hasDateChangedInIndianTimezone, getStartOfDayTimestampInIndianTimezone } from '../utils/dateUtils';
 
 // Key for storing the last check date in localStorage
@@ -54,9 +55,9 @@ const AdminDashboard = () => {
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);  // State to track if attendance has been reset for the day
   const [attendanceResetForToday, setAttendanceResetForToday] = useState(false);
   const [refreshingDeptStats, setRefreshingDeptStats] = useState(false);
-  const [refreshingRoleCounts, setRefreshingRoleCounts] = useState(false);
-  // New state for notification form
+  const [refreshingRoleCounts, setRefreshingRoleCounts] = useState(false);  // State for notification form and drawer
   const [isNotificationFormOpen, setIsNotificationFormOpen] = useState(false);
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
 
   const { getAdminStats: useAdminStats } = useAdminAPI();
 
@@ -272,23 +273,9 @@ const AdminDashboard = () => {
       });
     }
   };
-
   const handleLeaveClick = (leaveId: string) => {
     setSelectedLeaveId(leaveId);
     setIsLeaveDetailModalOpen(true);
-  };
-
-  const handleLogout = () => {
-    logout();
-    setToast({
-      visible: true,
-      message: 'Successfully logged out',
-      type: 'success'
-    });
-    // Redirect to login page after a short delay to show the toast
-    setTimeout(() => {
-      navigate('/login');
-    }, 1000);
   };
 
   const fadeIn = {
@@ -361,9 +348,8 @@ const AdminDashboard = () => {
       </div>
     );
   }
-
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -377,8 +363,22 @@ const AdminDashboard = () => {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Welcome, {user?.full_name || 'Admin'}
           </p>
-        </div>
-        <div className="flex space-x-4">
+        </div>        <div className="flex space-x-4">
+          {/* Notification Button */}
+          <button
+            onClick={() => setIsNotificationDrawerOpen(true)}
+            className="relative bg-white text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 transition-colors text-sm font-medium flex items-center"
+          >
+            <FaBell className="mr-2" />
+            Notifications
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          
+          {/* User Management Button */}
           <button
             onClick={() => navigate('/admin/users')}
             className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-600 transition-colors text-sm font-medium flex items-center"
@@ -388,6 +388,7 @@ const AdminDashboard = () => {
             </svg>
             Manage Users
           </button>
+            {/* Attendance Logs Button */}
           <button
             onClick={() => navigate('/attendance-logs')}
             className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
@@ -397,21 +398,26 @@ const AdminDashboard = () => {
             </svg>
             Attendance Logs
           </button>
-          <button
-            onClick={handleLogout}
-            className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Logout
-          </button>
+          
+          {/* Send Notification Button */}
           <button
             onClick={() => setIsNotificationFormOpen(true)}
             className="bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center"
           >
             <FaBell className="h-5 w-5 mr-2" />
             Send Notification
+          </button>
+          
+          {/* Logout Button */}
+          <button
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+            className="px-4 py-2 flex items-center justify-center bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+          >
+            <FaSignOutAlt className="mr-2" />
+            Logout
           </button>
         </div>
       </motion.div>
@@ -423,19 +429,25 @@ const AdminDashboard = () => {
         isVisible={toast.visible}
         onClose={() => setToast({ ...toast, visible: false })}
         duration={5000}
-      />
-
-      {/* Leave Detail Modal */}
+      />      {/* Leave Detail Modal */}
       <LeaveDetailModal
         isOpen={isLeaveDetailModalOpen}
         onClose={() => setIsLeaveDetailModalOpen(false)}
         leaveId={selectedLeaveId}
+        onApprove={handleApproveLeave}
+        onDeny={handleDenyLeave}
       />
 
       {/* Notification Form Modal */}
       <NotificationForm
         isOpen={isNotificationFormOpen}
         onClose={() => setIsNotificationFormOpen(false)}
+      />
+
+      {/* NotificationDrawer */}
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
       />
 
       {/* Summary cards */}

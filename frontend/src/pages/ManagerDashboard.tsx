@@ -13,8 +13,9 @@ import {
   useManagerAPI
 } from '../api/manager';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaUsers, FaCalendarAlt, FaBell } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaUsers, FaCalendarAlt, FaBell, FaSignOutAlt } from 'react-icons/fa';
 import NotificationForm from '../components/NotificationForm';
+import NotificationDrawer from '../components/NotificationDrawer';
 
 interface DepartmentStats {
   departmentName: string;
@@ -43,9 +44,10 @@ const ManagerDashboard = () => {
   const { getDepartmentStats: useDepartmentStats } = useManagerAPI();
   const [refreshingStats, setRefreshingStats] = useState(false);
   const [refreshingLeaves, setRefreshingLeaves] = useState(false);
-  const [refreshingEmployees, setRefreshingEmployees] = useState(false);
-  // State for notification form modal
+  const [refreshingEmployees, setRefreshingEmployees] = useState(false);  // State for notification form modal
   const [isNotificationFormOpen, setIsNotificationFormOpen] = useState(false);
+  // State for notification drawer
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
 
   useEffect(() => {
     // Check if user is manager, redirect to regular dashboard if not
@@ -217,9 +219,8 @@ const ManagerDashboard = () => {
       </div>
     );
   }
-
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -234,13 +235,29 @@ const ManagerDashboard = () => {
             Welcome, {user?.full_name || 'Manager'}
           </p>
         </div>        <div className="flex space-x-4">
+          {/* Notification Button */}
           <button
-            onClick={() => navigate('/department/schedule')}
+            onClick={() => setIsNotificationDrawerOpen(true)}
+            className="relative bg-white text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 transition-colors text-sm font-medium flex items-center"
+          >
+            <FaBell className="mr-2" />
+            Notifications
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => navigate('/manager/schedule')}
             className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-600 transition-colors text-sm font-medium flex items-center"
           >
             <FaCalendarAlt className="h-5 w-5 mr-2" />
             Department Schedule
-          </button>          <button
+          </button>          
+          
+          <button
             onClick={() => navigate('/attendance-logs')}
             className="bg-white/90 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg shadow-sm hover:bg-white dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center"
           >
@@ -248,6 +265,20 @@ const ManagerDashboard = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
             Attendance Logs
+          </button>
+          
+          {/* Logout Button */}
+          <button
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+            className="px-4 py-2 flex items-center justify-center bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Logout
           </button>
           <button
             onClick={() => navigate('/notifications')}
@@ -284,10 +315,15 @@ const ManagerDashboard = () => {
         duration={5000}
       />
 
-      {/* Notification Form Modal */}
-      <NotificationForm
+      {/* Notification Form Modal */}      <NotificationForm
         isOpen={isNotificationFormOpen}
         onClose={() => setIsNotificationFormOpen(false)}
+      />
+      
+      {/* Notification Drawer */}
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
       />
 
       {/* Summary cards */}
