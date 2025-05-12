@@ -24,12 +24,18 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 // Request logger middleware
 app.use((req, res, next) => {
@@ -61,8 +67,8 @@ app.get("/api/debug", (req, res) => {
       user: "/api/user",
       employees: "/api/employees",
       attendance: "/api/attendance",
-      notifications: "/api/notifications"
-    }
+      notifications: "/api/notifications",
+    },
   });
 });
 
@@ -71,25 +77,25 @@ app.get("/api/debug/auth", async (req, res) => {
   try {
     const User = (await import("./models/User.js")).default;
     const users = await User.find().select("username email roles").limit(5);
-    
+
     res.json({
       status: "ok",
       message: "These are sample users for testing",
       timestamp: new Date().toISOString(),
-      users: users.map(user => ({
+      users: users.map((user) => ({
         id: user._id,
         username: user.username,
         email: user.email,
-        roles: user.roles
+        roles: user.roles,
       })),
-      note: "Use these credentials for testing the notification system"
+      note: "Use these credentials for testing the notification system",
     });
   } catch (error) {
     console.error("Error fetching users:", error);
     res.status(500).json({
       status: "error",
       message: "Failed to retrieve users",
-      error: error.message
+      error: error.message,
     });
   }
 });

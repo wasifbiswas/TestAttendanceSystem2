@@ -6,7 +6,7 @@ This frontend application is configured to communicate with the backend API usin
 
 ```typescript
 // Base URL for the API
-const API_URL = 'http://localhost:5003/api';
+const API_URL = "http://localhost:5003/api";
 ```
 
 ## Making API Calls
@@ -14,18 +14,20 @@ const API_URL = 'http://localhost:5003/api';
 When making API calls, follow these guidelines to ensure consistency and avoid issues:
 
 ### ✅ DO:
+
 - Use the API client without repeating `/api` in your endpoint paths:
   ```typescript
   // CORRECT - The /api prefix is already included in the base URL
-  api.get('/user/profile');
-  api.post('/notifications', notificationData);
+  api.get("/user/profile");
+  api.post("/notifications", notificationData);
   ```
 
 ### ❌ DON'T:
+
 - Include `/api` in your endpoint paths:
-  ```typescript 
+  ```typescript
   // INCORRECT - This would result in http://localhost:5003/api/api/user/profile
-  api.get('/api/user/profile');
+  api.get("/api/user/profile");
   ```
 
 ## Common API Endpoints
@@ -42,10 +44,10 @@ All API calls should be wrapped in try/catch blocks with appropriate error handl
 
 ```typescript
 try {
-  const response = await api.get('/user/profile');
+  const response = await api.get("/user/profile");
   return response.data;
 } catch (error) {
-  console.error('Error fetching user profile:', error);
+  console.error("Error fetching user profile:", error);
   throw error;
 }
 ```
@@ -53,8 +55,9 @@ try {
 ## Testing API Endpoints
 
 To verify API connectivity, you can use the debug endpoint:
+
 ```typescript
-const response = await api.get('/debug');
+const response = await api.get("/debug");
 ```
 
 For more information, refer to the backend API documentation.
