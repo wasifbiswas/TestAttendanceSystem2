@@ -12,6 +12,7 @@ class AppError extends Error {
 
 // Not Found Error - 404
 export const notFound = (req, res, next) => {
+  console.log(`[NOT FOUND] ${req.method} ${req.originalUrl} - Headers: ${JSON.stringify(req.headers)}`);
   const error = new Error(`Not Found - ${req.originalUrl}`);
   res.status(404);
   next(error);

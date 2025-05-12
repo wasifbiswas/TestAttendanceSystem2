@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
@@ -17,6 +17,7 @@ import { BiLoaderAlt } from 'react-icons/bi';
 import { FaChartBar, FaCog, FaCalendarAlt, FaUsers, FaUserTie, FaUserShield, FaVenus, FaMars, FaBuilding, FaUsersCog, FaBell, FaSignOutAlt } from 'react-icons/fa';
 import LeaveDetailModal from '../components/admin/LeaveDetailModal';
 import NotificationForm from '../components/NotificationForm';
+import NotificationFormPortal from '../components/NotificationFormPortal';
 import NotificationDrawer from '../components/NotificationDrawer';
 import { hasDateChangedInIndianTimezone, getStartOfDayTimestampInIndianTimezone } from '../utils/dateUtils';
 
@@ -398,11 +399,18 @@ const AdminDashboard = () => {
             </svg>
             Attendance Logs
           </button>
-          
-          {/* Send Notification Button */}
+            {/* Send Notification Button */}
           <button
-            onClick={() => setIsNotificationFormOpen(true)}
-            className="bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center"
+            onClick={() => {
+              console.log('Notification button clicked, opening form...');
+              // Set state with callback to ensure we properly track state changes
+              setIsNotificationFormOpen(true);
+              
+              // Add a timestamp to help track when this event happened in logs
+              console.log(`Opening notification form at ${new Date().toISOString()}`);
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-3 rounded-lg shadow-lg border-2 border-red-300 transition-all duration-300 text-sm flex items-center"
+            data-testid="send-notification-button"
           >
             <FaBell className="h-5 w-5 mr-2" />
             Send Notification
@@ -436,12 +444,14 @@ const AdminDashboard = () => {
         leaveId={selectedLeaveId}
         onApprove={handleApproveLeave}
         onDeny={handleDenyLeave}
-      />
-
-      {/* Notification Form Modal */}
-      <NotificationForm
+      />      {/* Notification Form Modal */}
+      {/* Using Portal version for more reliable rendering */}
+      <NotificationFormPortal
         isOpen={isNotificationFormOpen}
-        onClose={() => setIsNotificationFormOpen(false)}
+        onClose={() => {
+          console.log('Closing notification form');
+          setIsNotificationFormOpen(false);
+        }}
       />
 
       {/* NotificationDrawer */}

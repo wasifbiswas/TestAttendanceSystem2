@@ -5,6 +5,7 @@ import { useNotificationStore } from '../store/notificationStore';
 import NotificationForm from '../components/NotificationForm';
 import Toast from '../components/Toast';
 import { FaBell, FaFilter, FaCheck, FaTrash } from 'react-icons/fa';
+import { getAllDepartments } from '../api/admin';
 
 // Animation variants
 const pageTransition = {
@@ -71,9 +72,9 @@ const NotificationsPage = () => {
     priority: 'all',
     department: 'all',
     dateRange: 'all'
-  });
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  });  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [departments, setDepartments] = useState<{_id: string, name: string}[]>([]);
+  const [isDepartmentsLoading, setIsDepartmentsLoading] = useState(false);
   const [toast, setToast] = useState<{ 
     visible: boolean; 
     message: string; 
@@ -94,33 +95,39 @@ const NotificationsPage = () => {
   }, [isAdmin, fetchAllNotifications, fetchUserNotifications]);  // Apply filters when notifications or filter options change
   useEffect(() => {
     applyFilters();
-  }, [notifications, filterOptions]);
-  // Extract unique departments from notifications for filter dropdown
+  }, [notifications, filterOptions]);  // Fetch all departments for the filter dropdown
   useEffect(() => {
-    const uniqueDepartments = notifications
-      .filter(notification => notification.department !== null && notification.department !== undefined)
-      .reduce((acc: {_id: string, name: string}[], notification) => {
-        // Since we've filtered out notifications without departments, we can assert the type
-        const dept = notification.department!;
-        if (!acc.some(d => d._id === dept._id)) {
-          acc.push({
-            _id: dept._id,
-            name: dept.name
-          });
-        }
-        return acc;
-      }, []);
-    
-    setDepartments(uniqueDepartments);
-  }, [notifications]);
+    const fetchDepartments = async () => {
+      setIsDepartmentsLoading(true);
+      try {
+        const allDepartments = await getAllDepartments();
+        // Map the department structure to match the expected format for the dropdown
+        const formattedDepartments = allDepartments.map(dept => ({
+          _id: dept._id,
+          name: dept.dept_name
+        }));
+        setDepartments(formattedDepartments);
+      } catch (error) {
+        console.error('Failed to fetch departments:', error);
+        setToast({
+          visible: true,
+          message: 'Failed to load departments',
+          type: 'error'
+        });
+      } finally {
+        setIsDepartmentsLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
   const applyFilters = useCallback(() => {
     let filtered = [...notifications];
     
     // Filter by priority
     if (filterOptions.priority !== 'all') {
       filtered = filtered.filter(n => n.priority === filterOptions.priority);
-    }
-      // Filter by department
+    }      // Filter by department
     if (filterOptions.department !== 'all') {
       filtered = filtered.filter(n => 
         n.department !== null && 
@@ -261,18 +268,24 @@ const NotificationsPage = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Department
-              </label>
-              <select
+              </label>              <select
                 value={filterOptions.department}
                 onChange={(e) => setFilterOptions({...filterOptions, department: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                disabled={isDepartmentsLoading}
               >
                 <option value="all">All Departments</option>
-                {departments.map(dept => (
-                  <option key={dept._id} value={dept._id}>
-                    {dept.name}
-                  </option>
-                ))}
+                {isDepartmentsLoading ? (
+                  <option value="" disabled>Loading departments...</option>
+                ) : departments.length > 0 ? (
+                  departments.map(dept => (
+                    <option key={dept._id} value={dept._id}>
+                      {dept.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No departments available</option>
+                )}
               </select>
             </div>
             

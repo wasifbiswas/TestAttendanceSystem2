@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { motion } from 'framer-motion';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
@@ -18,12 +19,12 @@ interface NotificationFormProps {
   onClose: () => void;
 }
 
-const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) => {
+const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClose }) => {
   // Add console logs for debugging form visibility issues
-  console.log('NotificationForm rendered, isOpen:', isOpen);
+  console.log('NotificationFormPortal rendered with isOpen =', isOpen);
   
   const { isAdmin, isManager, user } = useAuthStore();
-  const { sendNotification, fetchUserNotifications, isLoading, error } = useNotificationStore();
+  const { sendNotification, isLoading, error } = useNotificationStore();
   
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -49,19 +50,11 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
       if (!isOpen) return;
       
       try {
+        console.log('Fetching departments...');
         setFetchLoading(true);
-        // Use the real API call instead of mock data
         const departmentsData = await getAllDepartments();
+        console.log('Departments data:', departmentsData);
         setDepartments(departmentsData);
-          // For managers, if department info is stored in the auth state, auto-select it
-        if (isManager && departments.length > 0) {
-          // Since we don't have direct departmentId in user, we'll either use cached info in auth state
-          // or select the first available department if manager has only one department
-          const managerDept = departments.length === 1 ? departments[0]._id : undefined;
-          if (managerDept) {
-            setSelectedDepartment(managerDept);
-          }
-        }
       } catch (err) {
         console.error('Error fetching departments:', err);
       } finally {
@@ -70,7 +63,7 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
     };
     
     fetchDepartments();
-  }, [isOpen, isManager, user]);
+  }, [isOpen]);
   
   // Reset form when closed
   useEffect(() => {
@@ -86,7 +79,9 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
         setSuccess(false);
       }, 300);
     }
-  }, [isOpen]);  const handleSubmit = async (e: React.FormEvent) => {
+  }, [isOpen]);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
@@ -137,7 +132,8 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
           notificationData.department_id = selectedDepartment.trim();
         }
       }
-        console.log('Submitting notification:', notificationData);
+      
+      console.log('Submitting notification:', notificationData);
       
       try {
         const result = await sendNotification(notificationData);
@@ -159,8 +155,6 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
           message: apiError.message || 'An error occurred while sending the notification. Please try again.',
           type: 'error'
         });
-        
-        return; // Stop execution
       }
     } catch (err: any) {
       console.error('Error sending notification:', err);
@@ -174,9 +168,11 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
       });
     }
   };
-    // Always render when the component is included
-  // Visibility is controlled by the parent component (AdminDashboard)
-  return (
+  
+  if (!isOpen) return null;
+  
+  // The modal content
+  const content = (
     <>
       {/* Alert Modal for errors and success messages */}
       <AlertModal 
@@ -187,19 +183,14 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
         type={alertModal.type}
       />
       
-      {/* Backdrop */}      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.5 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black z-[9998]"
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 z-[9998]"
         onClick={onClose}
       />
       
       {/* Form Modal */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+      <div
         className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
         onClick={(e) => e.stopPropagation()}
       >
@@ -335,7 +326,8 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
                     )}
                   </div>
                 )}
-                  {/* Manager can only send to their department */}
+                
+                {/* Manager can only send to their department */}
                 {isManager && (
                   <div className="mb-4">
                     <p className="text-gray-700 dark:text-gray-300">
@@ -371,9 +363,11 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
             )}
           </form>
         </div>
-      </motion.div>
+      </div>
     </>
   );
+    // Use a portal to render at the document body level, but only when isOpen is true
+  return isOpen ? ReactDOM.createPortal(content, document.body) : null;
 };
 
-export default NotificationForm;
+export default NotificationFormPortal;

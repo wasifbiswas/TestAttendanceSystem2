@@ -11,6 +11,7 @@ import {
   deleteAttendance,
   bulkCreateAttendance,
 } from "../controllers/attendanceController.js";
+import { getAttendanceSummary } from "../controllers/userController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { admin, manager, selfOrManager } from "../middleware/roleMiddleware.js";
 import { validate } from "../middleware/validationMiddleware.js";
@@ -29,6 +30,9 @@ router.get("/", protect, admin, getAllAttendance);
 
 // Get today's attendance (admin and managers)
 router.get("/today", protect, manager, getTodayAttendance);
+
+// Get attendance summary for current user
+router.get("/summary", protect, getAttendanceSummary);
 
 // Check-in and check-out routes
 router.post("/check-in", protect, validate(checkInSchema), checkIn);

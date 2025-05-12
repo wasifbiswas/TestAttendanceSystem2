@@ -155,15 +155,25 @@ const Dashboard = () => {
 
   // Effect to fetch notifications when component mounts
   useEffect(() => {
-    fetchUserNotifications();
+    const fetchAndLogNotifications = async () => {
+      try {
+        console.log('Fetching notifications for employee dashboard...');
+        await fetchUserNotifications();
+        console.log('Notifications fetched successfully, unread count:', unreadCount);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
+    fetchAndLogNotifications();
     
     // Set up interval to fetch notifications periodically
     const intervalId = setInterval(() => {
-      fetchUserNotifications();
+      fetchAndLogNotifications();
     }, 60000); // Every minute
     
     return () => clearInterval(intervalId);
-  }, [fetchUserNotifications]);
+  }, [fetchUserNotifications, unreadCount]);
 
   // Other useEffect hooks remain the same...
 

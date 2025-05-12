@@ -43,12 +43,37 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   totalPages: 1,
   isLoading: false,
   error: null,
-  
-  // Fetch notifications for the current user
+    // Fetch notifications for the current user
   fetchUserNotifications: async (page = 1, limit = 10) => {
     set({ isLoading: true, error: null });
     try {
+      console.log(`notificationStore: Fetching user notifications (page ${page}, limit ${limit})`);
       const response = await getUserNotifications(page, limit);
+      
+      // Check if we got a valid response with data property
+      if (!response || !response.data) {
+        console.error('Invalid notification response structure:', response);
+        throw new Error('Invalid notification response');
+      }
+      
+      // Detailed logging of notification data
+      console.log('Notification response details:', {
+        count: response.count,
+        total: response.total,
+        unread: response.unread,
+        page: response.page,
+        totalPages: response.pages
+      });
+      
+      if (response.data.length > 0) {
+        console.log('Sample notification:', {
+          id: response.data[0]._id,
+          title: response.data[0].title,
+          from: response.data[0].sender?.username || 'Unknown sender',
+          read: response.data[0].read
+        });
+      }
+      
       set({
         notifications: response.data,
         unreadCount: response.unread,
@@ -57,7 +82,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         totalPages: response.pages,
         isLoading: false
       });
+      
+      console.log(`notificationStore: Updated with ${response.data.length} notifications, ${response.unread} unread`);
     } catch (error: any) {
+      console.error('Failed to fetch notifications:', error);
       set({ 
         error: error.message || 'Failed to fetch notifications',
         isLoading: false 
@@ -128,18 +156,36 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ error: error.message || 'Failed to delete notification' });
     }
   },
-  
-  // Send a new notification (admin/manager)
+    // Send a new notification (admin/manager)
   sendNotification: async (notificationData) => {
     set({ isLoading: true, error: null });
     try {
-      await createNotification(notificationData);
+      console.log('Sending notification:', notificationData);
+      const result = await createNotification(notificationData);
+      console.log('Notification sent successfully, response:', result);
+      
+      // Always refresh notifications after sending - this helps ensure
+      // the UI is synchronized with the latest state on the server
+      const { fetchUserNotifications } = get();
+      
+      // Set loading to false before fetching to avoid UI lockup
       set({ isLoading: false });
+      
+      // Refresh notifications in background after a short delay to allow server processing
+      setTimeout(() => {
+        console.log('Refreshing notifications after sending new notification');
+        fetchUserNotifications();
+      }, 300);
+      
+      // Return the result so the caller can use it
+      return result;
     } catch (error: any) {
+      console.error('Failed to send notification:', error);
       set({ 
         error: error.message || 'Failed to send notification',
         isLoading: false 
       });
+      throw error; // Re-throw to let the caller handle it
     }
   },
   

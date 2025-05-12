@@ -175,11 +175,23 @@ export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
   try {
     // Add timestamp to prevent caching
     const timestamp = new Date().getTime();
-    const response = await api.get<AttendanceSummary>(`/user/attendance/summary?_=${timestamp}`);
-    console.log('Retrieved attendance summary:', response.data);
-    return response.data;
+    // There are two endpoints that provide this data, try both in case one fails
+    console.log('Attempting to retrieve attendance summary...');
+    
+    try {
+      // First try the user controller endpoint
+      const response = await api.get<AttendanceSummary>(`/user/attendance/summary?_=${timestamp}`);
+      console.log('Retrieved attendance summary from user controller:', response.data);
+      return response.data;
+    } catch (error) {
+      console.log('First endpoint failed, trying attendance controller endpoint');
+      // If that fails, try the attendance controller endpoint
+      const response = await api.get<AttendanceSummary>(`/attendance/summary?_=${timestamp}`);
+      console.log('Retrieved attendance summary from attendance controller:', response.data);
+      return response.data;
+    }
   } catch (error) {
-    console.error('Get attendance summary error:', error);
+    console.error('Get attendance summary error (both endpoints failed):', error);
     throw error;
   }
 };
