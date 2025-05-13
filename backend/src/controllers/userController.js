@@ -133,7 +133,21 @@ export const getAttendanceSummary = asyncHandler(async (req, res) => {
         }
 
         console.log("Calculated leave balance:", leaveBalance);
-      }
+      }      // Get today's attendance record to check if the user has checked in
+      const today = new Date();
+      const { startOfDay, endOfDay } = getDayBoundaries(today);
+      
+      // Find today's attendance record to get check-in time
+      const todayAttendance = await Attendance.findOne({
+        emp_id: employee._id,
+        attendance_date: {
+          $gte: startOfDay,
+          $lte: endOfDay,
+        },
+      });
+      
+      // Get the check-in time if available
+      const lastCheckIn = todayAttendance?.check_in ? todayAttendance.check_in.toISOString() : null;
 
       // Return the summary
       res.json({
@@ -141,6 +155,7 @@ export const getAttendanceSummary = asyncHandler(async (req, res) => {
         employee_code: employee.employee_code,
         stats,
         leaveBalance,
+        lastCheckIn,
       });
     } catch (aggregateError) {
       console.error("Error during aggregation:", aggregateError);

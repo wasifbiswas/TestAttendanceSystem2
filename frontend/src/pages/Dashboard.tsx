@@ -8,6 +8,7 @@ import { useGoogleCalendar } from '../context/GoogleCalendarContext';
 import LeaveRequestModal from '../components/LeaveRequestModal';
 import ScheduleModal from '../components/ScheduleModal';
 import Toast from '../components/Toast';
+import TwoFactorDialog from '../components/TwoFactorDialog';
 import { EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest } from '../api/attendance';
 import RecentLeaves from '../components/RecentLeaves';
 import NotificationDrawer from '../components/NotificationDrawer';
@@ -64,7 +65,15 @@ const Dashboard = () => {
   // Add state for notification drawer
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
   // Add state for Google Calendar sync
-  const [isSyncingGoogle, setIsSyncingGoogle] = useState(false);
+  const [isSyncingGoogle, setIsSyncingGoogle] = useState(false);  // Add state for Two-Factor Authentication dialog
+  const [twoFactorDialog, setTwoFactorDialog] = useState<{
+    isOpen: boolean;
+    action: 'checkin' | 'checkout';
+    checkInTime?: string;
+  }>({
+    isOpen: false,
+    action: 'checkin'
+  });
   // We don't need leave status tracking anymore, but we could log leaves if needed
   useEffect(() => {
     if (userLeaves && userLeaves.length > 0) {
@@ -175,9 +184,24 @@ const Dashboard = () => {
     return () => clearInterval(intervalId);
   }, [fetchUserNotifications, unreadCount]);
 
-  // Other useEffect hooks remain the same...
-
-  // Enhanced check-in handler with leave balance refresh
+  // Other useEffect hooks remain the same...  // Function to start the check-in process with 2FA
+  const initiateCheckIn = () => {
+    setTwoFactorDialog({
+      isOpen: true,
+      action: 'checkin'
+    });
+  };
+  
+  // Function to start the check-out process with 2FA
+  const initiateCheckOut = () => {
+    setTwoFactorDialog({
+      isOpen: true,
+      action: 'checkout',
+      checkInTime: attendanceSummary?.lastCheckIn
+    });
+  };
+  
+  // The actual check-in function that will be called after 2FA confirmation
   const handleCheckIn = async () => {
     try {
       await checkIn();
@@ -188,12 +212,19 @@ const Dashboard = () => {
         const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
         setDetailedLeaveBalances(balances);
       }
+      
+      // Show success toast
+      setToast({
+        visible: true,
+        message: 'Successfully checked in!',
+        type: 'success'
+      });
     } catch (error) {
       // Error is already handled in the store
     }
   };
 
-  // Enhanced check-out handler with leave balance refresh
+  // The actual check-out function that will be called after 2FA confirmation
   const handleCheckOut = async () => {
     try {
       await checkOut();
@@ -204,6 +235,13 @@ const Dashboard = () => {
         const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
         setDetailedLeaveBalances(balances);
       }
+      
+      // Show success toast
+      setToast({
+        visible: true,
+        message: 'Successfully checked out!',
+        type: 'success'
+      });
     } catch (error) {
       // Error is already handled in the store
     }
@@ -594,10 +632,17 @@ const Dashboard = () => {
         onClose={() => setIsScheduleModalOpen(false)}
       />
       
-      {/* Notification drawer */}
-      <NotificationDrawer
+      {/* Notification drawer */}      <NotificationDrawer
         isOpen={isNotificationDrawerOpen}
         onClose={() => setIsNotificationDrawerOpen(false)}
+      />
+      
+      {/* Two-Factor Authentication Dialog for check-in/check-out confirmation */}      <TwoFactorDialog
+        isOpen={twoFactorDialog.isOpen}
+        action={twoFactorDialog.action}
+        checkInTime={twoFactorDialog.checkInTime}
+        onClose={() => setTwoFactorDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={() => twoFactorDialog.action === 'checkin' ? handleCheckIn() : handleCheckOut()}
       />
 
       {/* Main dashboard content */}
@@ -616,7 +661,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button 
                   className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handleCheckIn}
+                  onClick={initiateCheckIn}
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -631,7 +676,7 @@ const Dashboard = () => {
                 </button>
                 <button 
                   className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handleCheckOut}
+                  onClick={initiateCheckOut}
                   disabled={isLoading}
                 >
                   {isLoading ? (

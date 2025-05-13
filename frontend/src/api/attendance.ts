@@ -18,6 +18,7 @@ export interface AttendanceSummary {
   leaveBalance: LeaveBalance;
   employee_id?: string;  // Added to match the backend response
   employee_code?: string; // Added for employee code display
+  lastCheckIn?: string;  // Time of last check-in for current day
 }
 
 export interface CheckInOutResponse {

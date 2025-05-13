@@ -19,14 +19,22 @@ interface AttendanceState {
   userLeaves: LeaveRequest[];
   calendarSynced: boolean;
   
-  // Actions
+  // 2FA confirmation fields
+  showConfirmation: boolean;
+  pendingAction: 'check-in' | 'check-out' | null;
+    // Actions
   checkIn: () => Promise<void>;
-  checkOut: () => Promise<void>;
-  requestLeave: (leaveData: LeaveRequest) => Promise<void>;
+  checkOut: () => Promise<void>;  requestLeave: (leaveData: any) => Promise<any>;
   fetchAttendanceSummary: () => Promise<void>;
   fetchUserLeaves: () => Promise<LeaveRequest[]>;
   syncLeavesToCalendar: () => Promise<void>;
   clearError: () => void;
+  
+  // 2FA confirmation actions
+  requestCheckInConfirmation: () => void;
+  requestCheckOutConfirmation: () => void;
+  cancelPendingAction: () => void;
+  confirmPendingAction: () => Promise<void>;
 }
 
 export const useAttendanceStore = create<AttendanceState>((set, get) => ({
@@ -36,6 +44,31 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   attendanceSummary: null,
   userLeaves: [],
   calendarSynced: false,
+  showConfirmation: false,
+  pendingAction: null,
+  
+  // 2FA confirmation actions
+  requestCheckInConfirmation: () => {
+    set({ showConfirmation: true, pendingAction: 'check-in' });
+  },
+  
+  requestCheckOutConfirmation: () => {
+    set({ showConfirmation: true, pendingAction: 'check-out' });
+  },
+  
+  cancelPendingAction: () => {
+    set({ showConfirmation: false, pendingAction: null });
+  },
+  
+  confirmPendingAction: async () => {
+    const action = get().pendingAction;
+    if (action === 'check-in') {
+      await get().checkIn();
+    } else if (action === 'check-out') {
+      await get().checkOut();
+    }
+    set({ showConfirmation: false, pendingAction: null });
+  },
 
   checkIn: async () => {
     set({ isLoading: true, error: null });
@@ -69,9 +102,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       });
       throw error;
     }
-  },
-
-  requestLeave: async (leaveData) => {
+  },  requestLeave: async (leaveData: any) => {
     set({ isLoading: true, error: null });
     try {
       // Ensure data format matches API expectations
@@ -84,10 +115,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       
       const response = await apiRequestLeave(apiLeaveData);
       set({ isLoading: false });
-      
-      // Re-fetch attendance summary and user leaves to update leave balances
+        // Re-fetch attendance summary and user leaves to update leave balances
       get().fetchAttendanceSummary();
-      const leaves = await get().fetchUserLeaves();
+      await get().fetchUserLeaves(); // We don't need to store the result since we're just updating the state
       
       // If the leave request was successful, attempt to sync with Google Calendar
       try {
@@ -160,9 +190,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     try {
       // First make sure we have the latest leaves
       const leaves = await get().fetchUserLeaves();
-      
-      // Only sync approved leaves
-      const approvedLeaves = leaves.filter(leave => leave.status === 'Approved');
+        // Only sync approved leaves
+      const approvedLeaves = leaves.filter(leave => leave.status === 'APPROVED');
       
       // Make sure Google Calendar is initialized and user is signed in
       if (!googleCalendarService.isUserSignedIn()) {
