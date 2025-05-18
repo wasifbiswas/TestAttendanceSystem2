@@ -429,15 +429,46 @@ export const useAdminAPI = () => {
       setIsLoading(false);
       throw new Error(errorMessage);
     }
-  };
-  const deleteEmployee = async (id: string) => {
+  };  const deleteEmployee = async (id: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.delete(`/admin/employees/${id}`);
+      // Check if ID is valid
+      if (!id || typeof id !== 'string') {
+        throw new Error(`Invalid employee ID: ${id} - ID must be a string`);
+      }
+      
+      if (id.length !== 24) {
+        console.warn(`Employee ID ${id} may not be valid - expected 24 characters for MongoDB ID`);
+      }
+
+      console.log(`Attempting to delete employee with ID: ${id}`);
+      
+      // The backend route is defined at /api/employees/:id in employeeRoutes.js
+      // Since the axios instance already has /api as the baseURL, we just need to use /employees/:id
+      const response = await api.delete(`/employees/${id}`);
+      console.log('Delete employee response:', response);
+      
       setIsLoading(false);
       return response;
     } catch (err: any) {
+      console.error('API Error deleting employee:', err);
+      
+      // More detailed error logging
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Response error data:', err.response.data);
+        console.error('Response error status:', err.response.status);
+        console.error('Response error headers:', err.response.headers);
+      } else if (err.request) {
+        // The request was made but no response was received
+        console.error('No response received:', err.request);
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Request setup error:', err.message);
+      }
+      
       const errorMessage = err.response?.data?.message || 'Failed to delete employee';
       setError(errorMessage);
       setIsLoading(false);

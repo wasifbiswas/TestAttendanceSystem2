@@ -19,6 +19,7 @@ import {
   deleteUser,
   useAdminAPI
 } from '../api/admin';
+import { deleteEmployee } from '../api/employeeApi';
 import { ArrowLeftIcon, FunnelIcon, XCircleIcon, TrashIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 interface Role {
@@ -107,9 +108,10 @@ const getOptionColor = (deptName: string): string => {
 };
 
 const UserManagement = () => {
-  const navigate = useNavigate();
-  const { isAdmin } = useAuthStore();
-  const { deleteEmployee } = useAdminAPI();
+  const navigate = useNavigate();  const { isAdmin } = useAuthStore();
+  // We're now using the direct imported deleteEmployee function instead of the hook
+  // Only destructure error from useAdminAPI(), not isLoading (which is defined below)
+  const { error } = useAdminAPI();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserWithRoles[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -416,79 +418,57 @@ const UserManagement = () => {
       });
     }
   };
-
-  // New function to handle employee profile deletion
+  
+  // Function to handle employee profile deletion
   const handleDeleteEmployeeProfile = async () => {
     if (!userToDelete || !userToDelete.employee) return;
     
-    try {
-      // Get the employee ID by a safer approach that extracts the ID from any property
-      let employeeId = null;
-      
-      // Debug the entire employee object
+    try {      // Debug the employee object to help with troubleshooting
       console.log("Employee object structure:", userToDelete.employee);
       
-      if (userToDelete.employee) {
-        // Try direct properties or nested properties that might contain the employee ID
-        // Extract the first value that looks like a MongoDB ID (24 hex characters)
-        
-        // Define a helper function to extract the MongoDB ID from a value
-        const getMongoId = (value: any): string | null => {
-          if (typeof value === 'string' && /^[0-9a-f]{24}$/i.test(value)) {
-            return value; // Return the ID if it's a valid MongoDB ID
-          }
-          return null;
-        };
-        
-        // Helper function to extract IDs from an object recursively
-        const findMongoIdInObject = (obj: any): string | null => {
-          if (!obj || typeof obj !== 'object') return null;
-          
-          // Check explicitly named ID fields first
-          const commonIdFields = ['_id', 'id', 'employee_id', 'employeeId'];
-          for (const field of commonIdFields) {
-            if (obj[field]) {
-              const id = getMongoId(obj[field]);
-              if (id) {
-                console.log(`Found ID in field: ${field}`, id);
-                return id;
-              }
-            }
-          }
-          
-          // If not found in common fields, scan all fields recursively
-          for (const [key, value] of Object.entries(obj)) {
-            if (typeof value === 'string') {
-              const id = getMongoId(value);
-              if (id) {
-                console.log(`Found ID in field: ${key}`, id);
-                return id;
-              }
-            } else if (typeof value === 'object' && value !== null) {
-              // Recursively check nested objects
-              const id = findMongoIdInObject(value);
-              if (id) return id;
-            }
-          }
-          
-          return null;
-        };
-        
-        // Try to find a MongoDB ID in the employee object
-        employeeId = findMongoIdInObject(userToDelete.employee);
-      }
+      // Get the employee ID
+      let employeeId = null;
       
-      // If still not found, try to extract from employee_code if present
-      if (!employeeId && userToDelete.employee && typeof userToDelete.employee === 'object' && 'employee_code' in userToDelete.employee) {
-        console.log("Trying to extract ID from employee code:", userToDelete.employee.employee_code);
+      // Check all possible locations for the employee ID
+      if (userToDelete.employee && typeof userToDelete.employee === 'object') {
+        // Try to access the _id property safely using type assertion
+        const empObj = userToDelete.employee as any;
+        if (empObj._id) {
+          employeeId = empObj._id;
+          console.log("Found employee ID directly from _id property:", employeeId);
+        } 
+        // Check if ID might be in another property
+        else if (empObj.id) {
+          employeeId = empObj.id;
+          console.log("Found employee ID from id property:", employeeId);
+        }
       }
-      
-      // If still not found, log the object structure for debugging
+      // Try to find employee by user ID
+      else {
+        try {
+          console.log("Attempting to get employee details for user:", userToDelete._id);
+          // First try getting user details which should include employee info
+          const response = await api.get(`/admin/users/${userToDelete._id}`);
+          
+          if (response.data && response.data.employee && response.data.employee._id) {
+            employeeId = response.data.employee._id;
+            console.log("Found employee ID from user details API:", employeeId);
+          } 
+          // If no employee ID found directly, try checking if we have the employee reference via another property
+          else if (response.data && response.data.employeeId) {
+            employeeId = response.data.employeeId;
+            console.log("Found employee ID from employeeId property:", employeeId);
+          }
+        } catch (err) {
+          console.error("Error trying to find employee from user details:", err);
+        }
+      }
+      // If still not found, log the error and exit
       if (!employeeId) {
-        console.error('Could not find a valid MongoDB ID in employee object:', JSON.stringify(userToDelete.employee, null, 2));
+        console.error('Could not find a valid employee ID:', JSON.stringify(userToDelete.employee, null, 2));
         setToast({
           visible: true,
-          message: 'Could not find employee ID in the response data',
+          message: 'Could not determine the employee ID. Please try refreshing the page.',
           type: 'error'
         });
         return;
@@ -497,8 +477,14 @@ const UserManagement = () => {
       console.log(`Attempting to delete employee with ID: ${employeeId}`);
       
       // Call the API to delete the employee profile
+      // Use the imported deleteEmployee function directly
       const response = await deleteEmployee(employeeId);
       console.log('Delete employee response:', response);
+      
+      // Verify the success response
+      if (!response || response.status !== 200) {
+        throw new Error('Failed to delete employee profile. The server returned an unexpected response.');
+      }
       
       // Show success message
       setToast({
@@ -507,25 +493,33 @@ const UserManagement = () => {
         type: 'success'
       });
       
-      // Store the user data in a temp variable before closing the modal
-      const userToDeleteAfterProfile = { ...userToDelete };
-      
-      // Remove the employee data from this user so it will show the regular delete interface
-      userToDeleteAfterProfile.employee = undefined;
+      // Store the user's ID before closing the modal
+      const userId = userToDelete._id;
       
       // Close the current modal
       setShowDeleteModal(false);
       setUserToDelete(null);
       
-      // Refresh the user list first to ensure data is up to date
+      // Refresh the user list to ensure data is up to date
       await fetchData();
       
-      // Show the user delete confirmation modal immediately after employee profile deletion
-      // Small delay to ensure state updates properly
-      setTimeout(() => {
-        setUserToDelete(userToDeleteAfterProfile);
-        setShowDeleteModal(true);
-      }, 100);
+      // Find the updated user without employee profile
+      const updatedUserData = users.find(u => u._id === userId);
+      
+      if (updatedUserData) {
+        // Show the user delete confirmation modal immediately after employee profile deletion
+        setTimeout(() => {
+          setUserToDelete(updatedUserData);
+          setShowDeleteModal(true);
+        }, 300); // Slight delay to ensure data refresh completes
+      } else {
+        // If for some reason we can't find the user, just show a message
+        setToast({
+          visible: true,
+          message: 'Employee profile deleted. You can now delete the user if needed.',
+          type: 'info'
+        });
+      }
       
     } catch (error: any) {
       console.error('Error deleting employee profile:', error);
@@ -1228,8 +1222,7 @@ const UserManagement = () => {
           </table>
         </div>
       </div>
-    </div>
-  );
+    </div>  );
 };
 
 export default UserManagement;
