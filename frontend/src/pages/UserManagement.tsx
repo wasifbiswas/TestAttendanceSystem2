@@ -349,7 +349,6 @@ const UserManagement = () => {
       });
     }
   };
-
   const handleAssignDepartment = async (userId: string, departmentId: string) => {
     try {
       const response = await assignDepartmentToUser(userId, departmentId);
@@ -357,9 +356,15 @@ const UserManagement = () => {
       // Find the selected department name for display in the toast
       const selectedDeptName = departments.find(dept => dept._id === departmentId)?.dept_name || 'Department';
       
+      // Get the user that we're updating
+      const userBeingUpdated = users.find(u => u._id === userId);
+      const isNewAssignment = !userBeingUpdated?.employee || !userBeingUpdated?.employee?.department;
+      
       setToast({
         visible: true,
-        message: `${selectedDeptName} assigned successfully`,
+        message: isNewAssignment 
+          ? `${selectedDeptName} assigned successfully` 
+          : `Department changed to ${selectedDeptName} successfully`,
         type: 'success'
       });
       
@@ -889,15 +894,15 @@ const UserManagement = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Department Assignment Modal */}
+      )}      {/* Department Assignment Modal */}
       {showDeptModal && selectedUserData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">            <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Assign Department for {selectedUserData.full_name}
+                {(!selectedUserData.employee || !selectedUserData.employee.department) 
+                  ? `Assign Department for ${selectedUserData.full_name}`
+                  : `Change Department for ${selectedUserData.full_name}`
+                }
               </h2>
               <button
                 onClick={cancelDeptAssignment}
@@ -909,10 +914,26 @@ const UserManagement = () => {
               </button>
             </div>
 
-            <div className="mb-6">
-              <p className="text-gray-700 dark:text-gray-300 mb-4">
-                Select a department to assign to this user. This will create an employee profile if one doesn't exist.
+            <div className="mb-6">              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                {(!selectedUserData.employee || !selectedUserData.employee.department)
+                  ? "Select a department to assign to this user. This will create an employee profile if one doesn't exist."
+                  : "Select a new department for this user. This will update their existing employee profile."
+                }
               </p>
+              
+              {selectedUserData.employee && selectedUserData.employee.department && (
+                <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Current Department</p>
+                  <p className="text-lg font-medium">
+                    {typeof selectedUserData.employee.department === 'object' && selectedUserData.employee.department.dept_name
+                      ? selectedUserData.employee.department.dept_name
+                      : typeof selectedUserData.employee.department === 'string'
+                        ? selectedUserData.employee.department
+                        : 'Unknown Department'
+                    }
+                  </p>
+                </div>
+              )}
               
               <select
                 value={selectedDepartment || ''}
@@ -948,14 +969,16 @@ const UserManagement = () => {
               </button>
               <button
                 onClick={() => selectedDepartment && handleAssignDepartment(selectedUserData._id, selectedDepartment)}
-                disabled={!selectedDepartment}
-                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                disabled={!selectedDepartment}                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
                   ${!selectedDepartment 
                     ? 'bg-blue-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                   }`}
               >
-                Assign Department
+                {(!selectedUserData.employee || !selectedUserData.employee.department) 
+                  ? 'Assign Department' 
+                  : 'Change Department'
+                }
               </button>
             </div>
           </div>
@@ -1162,16 +1185,13 @@ const UserManagement = () => {
                         >
                           Manage Roles
                         </button>
-                        
-                        {/* Department assignment button - only shown for users without a department */}
-                        {(!user.employee || !user.employee.department) && (
-                          <button
-                            onClick={() => showDepartmentManagement(user._id)}
-                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                          >
-                            Assign Dept
-                          </button>
-                        )}
+                          {/* Department assignment/change button */}
+                        <button
+                          onClick={() => showDepartmentManagement(user._id)}
+                          className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                        >
+                          {(!user.employee || !user.employee.department) ? 'Assign Dept' : 'Change Dept'}
+                        </button>
                         
                         {/* Delete user button */}
                         <button

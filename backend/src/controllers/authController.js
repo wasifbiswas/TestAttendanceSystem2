@@ -44,9 +44,7 @@ export const registerUser = asyncHandler(async (req, res) => {
         message,
       });
       return; // Early return to prevent further execution
-    }
-
-    // Create new user - explicitly setting password_hash
+    } // Create new user - explicitly setting password_hash
     const userData = {
       username,
       email,
@@ -54,7 +52,7 @@ export const registerUser = asyncHandler(async (req, res) => {
       full_name,
       contact_number,
       department,
-      gender,
+      gender: gender ? gender.toUpperCase() : undefined, // Convert to uppercase to match enum values
       join_date: new Date(),
       is_active: true,
     };
@@ -80,28 +78,73 @@ export const registerUser = asyncHandler(async (req, res) => {
         console.log(`Assigned EMPLOYEE role to user: ${user.username}`);
       } else {
         console.log("Warning: EMPLOYEE role not found");
-      }
-
-      // If department is provided, create an employee profile and assign department
+      } // If department is provided, create an employee profile and assign department
       if (department) {
         try {
           // Import required models
           const Department = (await import("../models/Department.js")).default;
           const Employee = (await import("../models/Employee.js")).default;
 
-          // Find department by name
-          const departmentObj = await Department.findOne({
+          console.log(
+            `Processing department: ${department} for user: ${user._id}`
+          );
+
+          // First, check if department exists with the exact name
+          // The form sends department code values (HR, IT, etc.)
+          let departmentObj = await Department.findOne({
             dept_name: department,
           });
 
+          // If not found, try to find by case-insensitive search
+          if (!departmentObj) {
+            console.log(
+              `Department not found with exact name: ${department}. Trying case-insensitive search.`
+            );
+            departmentObj = await Department.findOne({
+              dept_name: { $regex: new RegExp(`^${department}$`, "i") },
+            });
+          }
+
+          // If still not found, create the department
+          if (!departmentObj) {
+            console.log(
+              `Department not found. Creating new department: ${department}`
+            );
+            try {
+              departmentObj = await Department.create({
+                dept_name: department,
+                description: `${department} Department`,
+              });
+              console.log(
+                `Created new department: ${department} with ID: ${departmentObj._id}`
+              );
+            } catch (err) {
+              if (err.code === 11000) {
+                // Duplicate key error - one more try with the exact error value
+                console.log(
+                  `Department creation failed with duplicate key. Trying to find existing department.`
+                );
+                departmentObj = await Department.findOne({
+                  dept_name: department,
+                });
+
+                if (!departmentObj) {
+                  throw new Error(
+                    `Failed to find or create department: ${department}`
+                  );
+                }
+              } else {
+                throw err;
+              }
+            }
+          }
+
           if (departmentObj) {
             console.log(
-              `Found department: ${departmentObj.dept_name} with ID: ${departmentObj._id}`
+              `Using department: ${departmentObj.dept_name} with ID: ${departmentObj._id}`
             );
 
             // Generate employee code in format "EMP" + numbers
-            const Employee = (await import("../models/Employee.js")).default;
-            // Find the last employee to get the last used employee code number
             const lastEmployee = await Employee.findOne().sort({
               employee_code: -1,
             });
@@ -112,31 +155,52 @@ export const registerUser = asyncHandler(async (req, res) => {
               lastEmployee.employee_code &&
               lastEmployee.employee_code.startsWith("EMP")
             ) {
-              // Extract the number part and increment it
-              const lastNumber =
-                parseInt(lastEmployee.employee_code.replace("EMP", "")) || 0;
-              employeeCode = `EMP${(lastNumber + 1)
-                .toString()
-                .padStart(4, "0")}`;
+              try {
+                // Extract the number part and increment it
+                const numberPart = lastEmployee.employee_code.substring(3); // Remove "EMP" prefix
+                const lastNumber = parseInt(numberPart, 10) || 0;
+                employeeCode = `EMP${(lastNumber + 1)
+                  .toString()
+                  .padStart(4, "0")}`;
+                console.log(
+                  `Generated next employee code: ${employeeCode} from last: ${lastEmployee.employee_code}`
+                );
+              } catch (err) {
+                console.error("Error parsing last employee code:", err);
+                employeeCode = `EMP${Math.floor(Math.random() * 9000 + 1000)}`; // Fallback
+              }
             } else {
-              // Start with EMP0001 if no existing codes or format is different
+              // Start with EMP0001 if no existing codes
               employeeCode = "EMP0001";
+              console.log(
+                `No existing employee codes found, starting with: ${employeeCode}`
+              );
             }
 
-            // Create employee profile
+            // Create employee profile with the required fields
             const employee = await Employee.create({
               user_id: user._id,
               dept_id: departmentObj._id,
               employee_code: employeeCode,
               designation: "Employee", // Default designation
-              join_date: new Date(),
+              hire_date: new Date(), // Using hire_date as required by the model
             });
 
             console.log(
               `Created employee profile with code: ${employeeCode} for user: ${user.username}`
             );
+
+            // Update user with department reference (optional but useful)
+            await User.findByIdAndUpdate(user._id, {
+              department: departmentObj.dept_name,
+            });
+            console.log(
+              `Updated user ${user.username} with department ${departmentObj.dept_name}`
+            );
           } else {
-            console.log(`Department not found with name: ${department}`);
+            throw new Error(
+              `Failed to find or create department: ${department}`
+            );
           }
         } catch (err) {
           console.error("Error creating employee profile:", err);
