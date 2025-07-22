@@ -1,4 +1,4 @@
-# Attendance Management System - AI Agent Instructions
+# Attendance Management System - Instructions
 
 ## Architecture Overview
 
