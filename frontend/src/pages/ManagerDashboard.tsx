@@ -13,9 +13,10 @@ import {
   useManagerAPI
 } from '../api/manager';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaChartBar, FaUsers, FaCalendarAlt, FaBell, FaSignOutAlt } from 'react-icons/fa';
+import { FaUserPlus, FaChartBar, FaUsers, FaCalendarAlt, FaBell, FaSignOutAlt, FaExchangeAlt, FaUserTie } from 'react-icons/fa';
 import NotificationForm from '../components/NotificationForm';
 import NotificationDrawer from '../components/NotificationDrawer';
+import Dashboard from './Dashboard';
 
 interface DepartmentStats {
   departmentName: string;
@@ -48,6 +49,8 @@ const ManagerDashboard = () => {
   const [isNotificationFormOpen, setIsNotificationFormOpen] = useState(false);
   // State for notification drawer
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+  // State for view mode switching between manager and employee dashboard
+  const [viewMode, setViewMode] = useState<'manager' | 'employee'>('manager');
 
   useEffect(() => {
     // Check if user is manager, redirect to regular dashboard if not
@@ -219,6 +222,17 @@ const ManagerDashboard = () => {
       </div>
     );
   }
+  
+  // If view mode is employee, render the employee dashboard
+  if (viewMode === 'employee') {
+    return (
+      <Dashboard 
+        isManagerView={true} 
+        onSwitchToManagerView={() => setViewMode('manager')} 
+      />
+    );
+  }
+  
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6">
       <motion.div
@@ -235,6 +249,15 @@ const ManagerDashboard = () => {
             Welcome, {user?.full_name || 'Manager'}
           </p>
         </div>        <div className="flex space-x-4">
+          {/* View Mode Toggle Button */}
+          <button
+            onClick={() => setViewMode(viewMode === 'manager' ? 'employee' : 'manager')}
+            className="bg-indigo-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-600 transition-colors text-sm font-medium flex items-center"
+          >
+            <FaExchangeAlt className="h-5 w-5 mr-2" />
+            Switch to {viewMode === 'manager' ? 'Employee' : 'Manager'} View
+          </button>
+          
           {/* Notification Button */}
           <button
             onClick={() => setIsNotificationDrawerOpen(true)}

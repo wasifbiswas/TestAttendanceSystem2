@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -12,7 +12,7 @@ import TwoFactorDialog from '../components/TwoFactorDialog';
 import { EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest } from '../api/attendance';
 import RecentLeaves from '../components/RecentLeaves';
 import NotificationDrawer from '../components/NotificationDrawer';
-import { FaSync, FaVenus, FaMars, FaBell, FaGoogle, FaSignOutAlt } from 'react-icons/fa';
+import { FaSync, FaVenus, FaMars, FaBell, FaGoogle, FaSignOutAlt, FaExchangeAlt } from 'react-icons/fa';
 
 // Gender-specific leave type codes
 const GENDER_SPECIFIC_LEAVES = {
@@ -20,7 +20,12 @@ const GENDER_SPECIFIC_LEAVES = {
   MALE: ['PL', 'PATERNITY'],   // Paternity leave codes
 };
 
-const Dashboard = () => {
+interface DashboardProps {
+  isManagerView?: boolean;
+  onSwitchToManagerView?: () => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchToManagerView }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { 
@@ -553,6 +558,17 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          {/* Switch to Manager View Button - only shown when called from manager dashboard */}
+          {isManagerView && onSwitchToManagerView && (
+            <button
+              onClick={onSwitchToManagerView}
+              className="bg-indigo-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-600 transition-colors text-sm font-medium flex items-center"
+            >
+              <FaExchangeAlt className="mr-2" />
+              Switch to Manager View
+            </button>
+          )}
+          
           {/* Google Sync Button */}
           <button
             onClick={async () => {
