@@ -37,9 +37,11 @@ app.use(
   })
 );
 
-// Request logger middleware
+// Request logger middleware (exclude favicon requests)
 app.use((req, res, next) => {
-  console.log(`[REQUEST] ${req.method} ${req.originalUrl}`);
+  if (req.originalUrl !== '/favicon.ico') {
+    console.log(`[REQUEST] ${req.method} ${req.originalUrl}`);
+  }
   next();
 });
 
@@ -54,6 +56,11 @@ app.get("/", (req, res) => {
     message: "Welcome to the Attendance System API",
     version: "1.0.0",
   });
+});
+
+// Handle favicon requests to prevent 404 errors
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end();
 });
 
 // Debug endpoint for API verification
