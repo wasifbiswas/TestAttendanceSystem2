@@ -39,7 +39,7 @@ app.use(
 
 // Request logger middleware (exclude favicon requests)
 app.use((req, res, next) => {
-  if (req.originalUrl !== '/favicon.ico') {
+  if (req.originalUrl !== "/favicon.ico") {
     console.log(`[REQUEST] ${req.method} ${req.originalUrl}`);
   }
   next();

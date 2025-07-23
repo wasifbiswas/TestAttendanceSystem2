@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
 import { getAllDepartments } from '../api/admin';
@@ -23,7 +23,7 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
   console.log('NotificationForm rendered, isOpen:', isOpen);
   
   const { isAdmin, isManager, user } = useAuthStore();
-  const { sendNotification, fetchUserNotifications, isLoading, error } = useNotificationStore();
+  const { sendNotification, isLoading, error } = useNotificationStore();
   
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -176,6 +176,8 @@ const NotificationForm: React.FC<NotificationFormProps> = ({ isOpen, onClose }) 
   };
     // Always render when the component is included
   // Visibility is controlled by the parent component (AdminDashboard)
+  if (!isOpen) return null;
+  
   return (
     <>
       {/* Alert Modal for errors and success messages */}
