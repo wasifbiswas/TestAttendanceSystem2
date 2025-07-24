@@ -315,7 +315,8 @@
 
 /* Sticky glow effect */
 @keyframes stickyGlow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 4px 15px rgba(45, 212, 191, 0.3);
   }
   50% {

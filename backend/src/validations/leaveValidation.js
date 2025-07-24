@@ -79,8 +79,9 @@ export const createLeaveTypeSchema = z.object({
     .string()
     .min(1, { message: "Leave code is required" })
     .max(10, { message: "Leave code cannot exceed 10 characters" })
-    .regex(/^[A-Z0-9_]+$/, { 
-      message: "Leave code must contain only uppercase letters, numbers, and underscores" 
+    .regex(/^[A-Z0-9_]+$/, {
+      message:
+        "Leave code must contain only uppercase letters, numbers, and underscores",
     }),
   leave_name: z
     .string()
@@ -109,8 +110,9 @@ export const updateLeaveTypeSchema = z.object({
     .string()
     .min(1, { message: "Leave code is required" })
     .max(10, { message: "Leave code cannot exceed 10 characters" })
-    .regex(/^[A-Z0-9_]+$/, { 
-      message: "Leave code must contain only uppercase letters, numbers, and underscores" 
+    .regex(/^[A-Z0-9_]+$/, {
+      message:
+        "Leave code must contain only uppercase letters, numbers, and underscores",
     })
     .optional(),
   leave_name: z
