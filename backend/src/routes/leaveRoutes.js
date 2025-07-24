@@ -14,6 +14,7 @@ import {
   getLeaveTypeById,
   createLeaveType,
   updateLeaveType,
+  deleteLeaveType,
 } from "../controllers/leaveController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { admin, manager, selfOrManager } from "../middleware/roleMiddleware.js";
@@ -23,6 +24,8 @@ import {
   updateLeaveRequestSchema,
   leaveApprovalSchema,
   createLeaveBalanceSchema,
+  createLeaveTypeSchema,
+  updateLeaveTypeSchema,
 } from "../validations/leaveValidation.js";
 
 const router = express.Router();
@@ -31,12 +34,13 @@ const router = express.Router();
 router
   .route("/types")
   .get(protect, getAllLeaveTypes)
-  .post(protect, admin, createLeaveType);
+  .post(protect, admin, validate(createLeaveTypeSchema), createLeaveType);
 
 router
   .route("/types/:id")
   .get(protect, getLeaveTypeById)
-  .put(protect, admin, updateLeaveType);
+  .put(protect, admin, validate(updateLeaveTypeSchema), updateLeaveType)
+  .delete(protect, admin, deleteLeaveType);
 
 // Get all leave requests (admin only)
 router.get("/", protect, admin, getAllLeaveRequests);

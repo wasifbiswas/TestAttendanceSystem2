@@ -3,8 +3,9 @@ import { useAdminAPI } from '../api/admin';
 import { useManagerAPI } from '../api/manager';
 import { useAuthStore } from '../store/authStore';
 import Toast from '../components/Toast';
+import LeaveBalanceManager from '../components/admin/LeaveBalanceManager';
 import { BiLoaderAlt } from 'react-icons/bi';
-import { FaUserPlus, FaEdit, FaTrash, FaArrowLeft } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaArrowLeft, FaCalendarAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 type Employee = {
@@ -28,6 +29,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
   const [isAddingEmployee, setIsAddingEmployee] = useState<boolean>(false);
   const [isEditingEmployee, setIsEditingEmployee] = useState<boolean>(false);
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
+  const [showLeaveBalanceManager, setShowLeaveBalanceManager] = useState<boolean>(false);
   const [toast, setToast] = useState({ 
     visible: false, 
     message: '', 
@@ -407,13 +409,24 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Employee Management</h1>
         </div>
         {!isAddingEmployee && !isEditingEmployee && (
-          <button
-            onClick={() => setIsAddingEmployee(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            <FaUserPlus className="mr-2" />
-            Add Employee
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setIsAddingEmployee(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              <FaUserPlus className="mr-2" />
+              Add Employee
+            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowLeaveBalanceManager(true)}
+                className="flex items-center px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
+              >
+                <FaCalendarAlt className="mr-2" />
+                Manage Leave Balances
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -523,6 +536,29 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ departmentOnly 
           )}
         </div>
       )}
+
+      {/* Leave Balance Manager Modal */}
+      <LeaveBalanceManager
+        employees={employees.map(emp => ({
+          _id: emp.id,
+          employee_code: emp.id, // Using id as employee_code for now
+          user_id: {
+            full_name: emp.name,
+            email: emp.email
+          },
+          designation: emp.position,
+          department: emp.department
+        }))}
+        isOpen={showLeaveBalanceManager}
+        onClose={() => setShowLeaveBalanceManager(false)}
+      />
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.visible}
+        onClose={() => setToast({ ...toast, visible: false })}
+      />
     </div>
   );
 };

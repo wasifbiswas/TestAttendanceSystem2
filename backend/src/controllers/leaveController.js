@@ -885,3 +885,48 @@ export const updateLeaveType = asyncHandler(async (req, res) => {
 
   res.json(updatedLeaveType);
 });
+
+// @desc    Delete leave type
+// @route   DELETE /api/leaves/types/:id
+// @access  Private/Admin
+export const deleteLeaveType = asyncHandler(async (req, res) => {
+  const leaveType = await LeaveType.findById(req.params.id);
+
+  if (!leaveType) {
+    res.status(404);
+    throw new AppError("Leave type not found", 404);
+  }
+
+  // Check if there are any leave requests using this leave type
+  const leaveRequestsCount = await LeaveRequest.countDocuments({
+    leave_type_id: req.params.id,
+  });
+
+  if (leaveRequestsCount > 0) {
+    res.status(400);
+    throw new AppError(
+      `Cannot delete leave type. ${leaveRequestsCount} leave requests are using this type.`,
+      400
+    );
+  }
+
+  // Check if there are any leave balances using this leave type
+  const leaveBalancesCount = await LeaveBalance.countDocuments({
+    leave_type_id: req.params.id,
+  });
+
+  if (leaveBalancesCount > 0) {
+    res.status(400);
+    throw new AppError(
+      `Cannot delete leave type. ${leaveBalancesCount} leave balance records are using this type.`,
+      400
+    );
+  }
+
+  await LeaveType.findByIdAndDelete(req.params.id);
+
+  res.json({
+    success: true,
+    message: "Leave type deleted successfully",
+  });
+});

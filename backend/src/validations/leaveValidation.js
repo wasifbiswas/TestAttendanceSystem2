@@ -72,3 +72,66 @@ export const createLeaveBalanceSchema = z.object({
     .nonnegative({ message: "Used days must be a non-negative number" })
     .optional(),
 });
+
+// Create leave type validation schema
+export const createLeaveTypeSchema = z.object({
+  leave_code: z
+    .string()
+    .min(1, { message: "Leave code is required" })
+    .max(10, { message: "Leave code cannot exceed 10 characters" })
+    .regex(/^[A-Z0-9_]+$/, { 
+      message: "Leave code must contain only uppercase letters, numbers, and underscores" 
+    }),
+  leave_name: z
+    .string()
+    .min(1, { message: "Leave name is required" })
+    .max(100, { message: "Leave name cannot exceed 100 characters" }),
+  description: z
+    .string()
+    .max(500, { message: "Description cannot exceed 500 characters" })
+    .optional(),
+  is_carry_forward: z.boolean().optional(),
+  default_annual_quota: z
+    .number()
+    .min(0, { message: "Default annual quota must be non-negative" })
+    .max(365, { message: "Default annual quota cannot exceed 365 days" }),
+  requires_approval: z.boolean().optional(),
+  max_consecutive_days: z
+    .number()
+    .min(0, { message: "Max consecutive days must be non-negative" })
+    .max(365, { message: "Max consecutive days cannot exceed 365 days" })
+    .optional(),
+});
+
+// Update leave type validation schema
+export const updateLeaveTypeSchema = z.object({
+  leave_code: z
+    .string()
+    .min(1, { message: "Leave code is required" })
+    .max(10, { message: "Leave code cannot exceed 10 characters" })
+    .regex(/^[A-Z0-9_]+$/, { 
+      message: "Leave code must contain only uppercase letters, numbers, and underscores" 
+    })
+    .optional(),
+  leave_name: z
+    .string()
+    .min(1, { message: "Leave name is required" })
+    .max(100, { message: "Leave name cannot exceed 100 characters" })
+    .optional(),
+  description: z
+    .string()
+    .max(500, { message: "Description cannot exceed 500 characters" })
+    .optional(),
+  is_carry_forward: z.boolean().optional(),
+  default_annual_quota: z
+    .number()
+    .min(0, { message: "Default annual quota must be non-negative" })
+    .max(365, { message: "Default annual quota cannot exceed 365 days" })
+    .optional(),
+  requires_approval: z.boolean().optional(),
+  max_consecutive_days: z
+    .number()
+    .min(0, { message: "Max consecutive days must be non-negative" })
+    .max(365, { message: "Max consecutive days cannot exceed 365 days" })
+    .optional(),
+});

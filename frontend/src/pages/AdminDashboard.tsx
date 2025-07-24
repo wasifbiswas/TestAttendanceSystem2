@@ -294,7 +294,7 @@ const AdminDashboard = () => {
   // Admin action buttons section
   const renderAdminActions = () => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
         <button
           onClick={() => navigate('/admin/employees')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
@@ -325,6 +325,19 @@ const AdminDashboard = () => {
         >
           <FaCalendarAlt className="text-3xl text-orange-500 mb-2" />
           <span className="font-medium">Manage Holidays</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/admin/leave-types')}
+          className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 border-teal-400 relative overflow-hidden animate-sticky-pulse animate-sticky-glow"
+        >
+          <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-bl-lg animate-pulse">
+            FEATURED
+          </div>
+          <div className="absolute top-1 left-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+          <FaCalendarAlt className="text-3xl text-white mb-2 drop-shadow-md" />
+          <span className="font-semibold text-white drop-shadow-sm">Leave Types</span>
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
         </button>
 
         <button
@@ -780,10 +793,19 @@ const AdminDashboard = () => {
         initial="hidden"
         animate="visible"
         variants={fadeIn}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden mb-8"
+        className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-lg border-2 border-teal-200 dark:border-teal-700 overflow-hidden mb-8 relative"
       >
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-400 via-blue-500 to-purple-600"></div>
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Admin Actions</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+              <span className="w-2 h-2 bg-teal-500 rounded-full mr-3 animate-pulse"></span>
+              Admin Actions
+              <span className="ml-2 text-xs bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-2 py-1 rounded-full font-normal">
+                Featured: Leave Management
+              </span>
+            </h3>
+          </div>
         </div>
         <div className="p-6">
           {renderAdminActions()}

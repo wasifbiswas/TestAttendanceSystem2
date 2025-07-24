@@ -87,7 +87,12 @@ export interface LeaveType {
   leave_code: string;
   leave_name: string;
   description?: string;
+  is_carry_forward: boolean;
   default_annual_quota: number;
+  requires_approval: boolean;
+  max_consecutive_days: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface EmployeeLeaveBalance {
@@ -435,6 +440,89 @@ export const getEmployeeLeaveBalances = async (employeeId: string): Promise<Empl
     return response.data;
   } catch (error) {
     console.error('Error fetching employee leave balances:', error);
+    throw error;
+  }
+};
+
+// Leave Type Management API Functions
+
+export interface CreateLeaveTypeData {
+  leave_code: string;
+  leave_name: string;
+  description?: string;
+  is_carry_forward?: boolean;
+  default_annual_quota: number;
+  requires_approval?: boolean;
+  max_consecutive_days?: number;
+}
+
+export interface UpdateLeaveTypeData {
+  leave_code?: string;
+  leave_name?: string;
+  description?: string;
+  is_carry_forward?: boolean;
+  default_annual_quota?: number;
+  requires_approval?: boolean;
+  max_consecutive_days?: number;
+}
+
+export const createLeaveType = async (data: CreateLeaveTypeData): Promise<LeaveType> => {
+  try {
+    const response = await api.post<LeaveType>('/leaves/types', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating leave type:', error);
+    throw error;
+  }
+};
+
+export const updateLeaveType = async (id: string, data: UpdateLeaveTypeData): Promise<LeaveType> => {
+  try {
+    const response = await api.put<LeaveType>(`/leaves/types/${id}`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating leave type:', error);
+    throw error;
+  }
+};
+
+export const deleteLeaveType = async (id: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.delete<{ success: boolean; message: string }>(`/leaves/types/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting leave type:', error);
+    throw error;
+  }
+};
+
+export const getLeaveTypeById = async (id: string): Promise<LeaveType> => {
+  try {
+    const response = await api.get<LeaveType>(`/leaves/types/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching leave type:', error);
+    throw error;
+  }
+};
+
+// Update employee leave balance
+export interface UpdateLeaveBalanceData {
+  leave_type_id: string;
+  year: number;
+  allocated_leaves: number;
+  carried_forward: number;
+}
+
+export const updateLeaveBalance = async (
+  employeeId: string, 
+  data: UpdateLeaveBalanceData
+): Promise<EmployeeLeaveBalance> => {
+  try {
+    const response = await api.put<EmployeeLeaveBalance>(`/leaves/balance/${employeeId}`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating leave balance:', error);
     throw error;
   }
 };

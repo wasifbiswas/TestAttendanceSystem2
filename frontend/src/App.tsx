@@ -11,6 +11,7 @@ import EmployeeManagement from './pages/EmployeeManagement';
 import ReportsPage from './pages/ReportsPage';
 import SystemSettings from './pages/SystemSettings';
 import HolidayManagement from './pages/HolidayManagement';
+import LeaveTypeManagement from './pages/LeaveTypeManagement';
 import DepartmentSchedule from './pages/DepartmentSchedule';
 import AttendanceLogs from './pages/AttendanceLogs';
 import NotificationsPage from './pages/NotificationsPage';
@@ -156,6 +157,14 @@ function App() {
             <AdminRoute>
               <MinimalLayout>
                 <HolidayManagement />
+              </MinimalLayout>
+            </AdminRoute>
+          } />
+
+          <Route path="/admin/leave-types" element={
+            <AdminRoute>
+              <MinimalLayout>
+                <LeaveTypeManagement />
               </MinimalLayout>
             </AdminRoute>
           } />          {/* Manager routes */}
