@@ -39,10 +39,14 @@ export const getAttendanceSummary = asyncHandler(async (req, res) => {
 
     console.log("Employee ID:", employee._id);
 
-    // Get attendance statistics
-    const currentYear = new Date().getFullYear();
-    const startOfYear = new Date(currentYear, 0, 1);
-    console.log("Start of year:", startOfYear);
+    // Get attendance statistics for current month
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const startOfMonth = new Date(currentYear, currentMonth, 1);
+    const endOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+    console.log("Start of month:", startOfMonth);
+    console.log("End of month:", endOfMonth);
 
     try {
       // Convert employee._id to ObjectId if it's not already
@@ -50,12 +54,15 @@ export const getAttendanceSummary = asyncHandler(async (req, res) => {
         ? employee._id
         : new mongoose.Types.ObjectId(employee._id.toString());
 
-      // Get attendance counts
+      // Get attendance counts for current month only
       const attendanceStats = await Attendance.aggregate([
         {
           $match: {
             emp_id: employeeId,
-            attendance_date: { $gte: startOfYear },
+            attendance_date: { 
+              $gte: startOfMonth,
+              $lte: endOfMonth
+            },
           },
         },
         {
