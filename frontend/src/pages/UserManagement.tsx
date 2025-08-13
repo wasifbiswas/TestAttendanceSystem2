@@ -396,24 +396,33 @@ const UserManagement = () => {
     if (!userToDelete) return;
     
     try {
+      // First check if the user has an employee profile
+      if (userToDelete.employee && userToDelete.employee.employee_code) {
+        setToast({
+          visible: true,
+          message: 'Cannot delete user with employee profile. Please delete the employee profile first.',
+          type: 'error'
+        });
+        return;
+      }
+      
+      // Now delete the user
       await deleteUser(userToDelete._id);
       setToast({
         visible: true,
-        message: 'User deleted successfully',
+        message: 'User and associated employee profile deleted successfully',
         type: 'success'
       });
-      // Close the modal
+      
+      // Close the modal and refresh
       setShowDeleteModal(false);
       setUserToDelete(null);
-      // Refresh the user list
       fetchData();
     } catch (error: any) {
-      console.error('Error deleting user:', error);
-      // Show more specific error message if available from API
-      const errorMessage = error.response?.data?.message || 'Failed to delete user';
+      console.error('Error in delete process:', error);
       setToast({
         visible: true,
-        message: errorMessage,
+        message: error.response?.data?.message || 'Failed to complete deletion process',
         type: 'error'
       });
     }
@@ -421,60 +430,32 @@ const UserManagement = () => {
   
   // Function to handle employee profile deletion
   const handleDeleteEmployeeProfile = async () => {
-    if (!userToDelete || !userToDelete.employee) return;
+    if (!userToDelete || !userToDelete.employee) {
+      setToast({
+        visible: true,
+        message: 'No employee profile found',
+        type: 'error'
+      });
+      return;
+    }
     
-    try {      // Debug the employee object to help with troubleshooting
+    try {
       console.log("Employee object structure:", userToDelete.employee);
       
-      // Get the employee ID
-      let employeeId = null;
+      // Get the employee ID using type assertion since we know it exists
+      const empObj = userToDelete.employee as any;
+      const employeeId = empObj._id;
       
-      // Check all possible locations for the employee ID
-      if (userToDelete.employee && typeof userToDelete.employee === 'object') {
-        // Try to access the _id property safely using type assertion
-        const empObj = userToDelete.employee as any;
-        if (empObj._id) {
-          employeeId = empObj._id;
-          console.log("Found employee ID directly from _id property:", employeeId);
-        } 
-        // Check if ID might be in another property
-        else if (empObj.id) {
-          employeeId = empObj.id;
-          console.log("Found employee ID from id property:", employeeId);
-        }
-      }
-      // Try to find employee by user ID
-      else {
-        try {
-          console.log("Attempting to get employee details for user:", userToDelete._id);
-          // First try getting user details which should include employee info
-          const response = await api.get(`/admin/users/${userToDelete._id}`);
-          
-          if (response.data && response.data.employee && response.data.employee._id) {
-            employeeId = response.data.employee._id;
-            console.log("Found employee ID from user details API:", employeeId);
-          } 
-          // If no employee ID found directly, try checking if we have the employee reference via another property
-          else if (response.data && response.data.employeeId) {
-            employeeId = response.data.employeeId;
-            console.log("Found employee ID from employeeId property:", employeeId);
-          }
-        } catch (err) {
-          console.error("Error trying to find employee from user details:", err);
-        }
-      }
-      // If still not found, log the error and exit
       if (!employeeId) {
-        console.error('Could not find a valid employee ID:', JSON.stringify(userToDelete.employee, null, 2));
         setToast({
           visible: true,
-          message: 'Could not determine the employee ID. Please try refreshing the page.',
+          message: 'Could not find employee ID',
           type: 'error'
         });
         return;
       }
       
-      console.log(`Attempting to delete employee with ID: ${employeeId}`);
+      console.log("Attempting to delete employee profile:", employeeId);
       
       // Call the API to delete the employee profile
       // Use the imported deleteEmployee function directly
@@ -550,20 +531,6 @@ const UserManagement = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmRoleAction = () => {
-    if (!selectedUser || !selectedRole) return;
-    
-    if (actionType === 'add') {
-      handleAssignRole(selectedUser, selectedRole);
-    } else {
-      handleRemoveRole(selectedUser, selectedRole);
-    }
-    
-    setShowRoleModal(false);
-    setSelectedUser(null);
-    setSelectedRole(null);
-  };
-  
   const cancelRoleAction = () => {
     setShowRoleModal(false);
     setSelectedUser(null);
@@ -589,23 +556,6 @@ const UserManagement = () => {
       type: 'success'
     });
     fetchData();
-  };
-
-  const getUserRoleNames = (user: UserWithRoles) => {
-    return user.assignedRoles
-      .map(roleId => {
-        const role = roles.find(r => r._id === roleId);
-        return role ? role.role_name : '';
-      })
-      .filter(name => name) // Filter out any empty strings
-      .join(', ');
-  };
-
-  const hasRole = (user: UserWithRoles, roleName: string) => {
-    return user.assignedRoles.some(roleId => {
-      const role = roles.find(r => r._id === roleId);
-      return role && role.role_name.toUpperCase() === roleName.toUpperCase();
-    });
   };
 
   const fadeIn = {
