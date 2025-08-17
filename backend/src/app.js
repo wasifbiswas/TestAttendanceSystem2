@@ -14,6 +14,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import managerRoutes from "./routes/managerRoutes.js";
 
 // Load environment variables
 dotenv.config();
@@ -29,7 +30,11 @@ app.use(
     origin: [
       "http://localhost:3000",
       "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
       "http://127.0.0.1:5173",
+      "http://127.0.0.1:5174",
+      "http://127.0.0.1:5175",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
@@ -117,6 +122,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/manager", managerRoutes);
 
 // Error handling middleware
 app.use(notFound);

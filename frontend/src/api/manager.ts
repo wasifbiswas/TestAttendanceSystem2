@@ -127,7 +127,7 @@ export const useManagerAPI = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.post(`/manager/leave-requests/${leaveId}/approve`);
+      const response = await api.put(`/manager/leave-requests/${leaveId}/approve`);
       setIsLoading(false);
       return response.data;
     } catch (err: any) {
@@ -143,7 +143,7 @@ export const useManagerAPI = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.post(`/manager/leave-requests/${leaveId}/deny`);
+      const response = await api.put(`/manager/leave-requests/${leaveId}/reject`);
       setIsLoading(false);
       return response.data;
     } catch (err: any) {
@@ -201,7 +201,7 @@ export const getDepartmentLeaveRequests = async () => {
  * @returns Success response
  */
 export const approveLeaveRequest = async (leaveId: string): Promise<{ success: boolean; message: string }> => {
-  const response = await api.post(`/manager/leave-requests/${leaveId}/approve`);
+  const response = await api.put(`/manager/leave-requests/${leaveId}/approve`);
   return response.data;
 };
 
@@ -211,7 +211,7 @@ export const approveLeaveRequest = async (leaveId: string): Promise<{ success: b
  * @returns Success response
  */
 export const denyLeaveRequest = async (leaveId: string): Promise<{ success: boolean; message: string }> => {
-  const response = await api.post(`/manager/leave-requests/${leaveId}/deny`);
+  const response = await api.put(`/manager/leave-requests/${leaveId}/reject`);
   return response.data;
 };
 
