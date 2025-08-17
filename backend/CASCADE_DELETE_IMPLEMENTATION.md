@@ -16,6 +16,7 @@ Previously, when users were deleted from the system, their related records (role
 Added pre-delete middleware hooks to the `User` and `Employee` models that automatically clean up all related data when records are deleted.
 
 #### User Model Cascade Delete (`src/models/User.js`)
+
 When a user is deleted, the following cleanup occurs automatically:
 
 ```javascript
@@ -23,13 +24,14 @@ When a user is deleted, the following cleanup occurs automatically:
 - User role assignments (UserRole collection)
 - Employee profile (if exists)
 - All attendance records (Attendance collection)
-- All leave requests (LeaveRequest collection) 
+- All leave requests (LeaveRequest collection)
 - All leave balances (LeaveBalance collection)
 - Notification recipients (removes user from notifications)
 - Updates reporting manager references
 ```
 
 #### Employee Model Cascade Delete (`src/models/Employee.js`)
+
 When an employee is deleted, the following cleanup occurs automatically:
 
 ```javascript
@@ -43,6 +45,7 @@ When an employee is deleted, the following cleanup occurs automatically:
 ### 2. **Controller Updates**
 
 #### Admin Controller (`src/controllers/adminController.js`)
+
 - Simplified `deleteUser` function since cascade delete handles all cleanup automatically
 - Removed manual cleanup code as it's now handled by model hooks
 - Updated success message to reflect comprehensive cleanup
@@ -50,25 +53,31 @@ When an employee is deleted, the following cleanup occurs automatically:
 ### 3. **Data Integrity Tools**
 
 #### Validation Script (`validateDataIntegrity.cjs`)
+
 ```bash
 node validateDataIntegrity.cjs
 ```
+
 - Scans entire database for orphaned records
 - Reports counts of inconsistent data
 - Provides detailed analysis of data integrity issues
 
 #### Comprehensive Cleanup Script (`cleanupAllOrphanedData.cjs`)
+
 ```bash
 node cleanupAllOrphanedData.cjs
 ```
+
 - Removes all existing orphaned records from the database
 - Cleans up user roles, employees, attendance, leave data, notifications
 - Provides detailed logging of cleanup operations
 
 #### Test Script (`testCascadeDelete.cjs`)
+
 ```bash
 node testCascadeDelete.cjs
 ```
+
 - Creates test user with full employee profile and related data
 - Demonstrates automatic cleanup when user is deleted
 - Validates that no orphaned records are left behind
@@ -76,6 +85,7 @@ node testCascadeDelete.cjs
 ## Results
 
 ### Before Implementation
+
 ```
 📊 Data Issues:
 - Orphaned user roles: 6
@@ -88,6 +98,7 @@ Total: 26 orphaned records
 ```
 
 ### After Implementation
+
 ```
 📊 Data Status:
 - Orphaned user roles: 0
@@ -100,6 +111,7 @@ Total: 0 orphaned records ✅
 ```
 
 ### Cascade Delete Test Results
+
 ```
 🎯 VALIDATION RESULTS:
 ✅ CASCADE DELETE WORKING PERFECTLY!
@@ -110,21 +122,25 @@ Total: 0 orphaned records ✅
 ## Key Benefits
 
 ### 1. **Data Consistency**
+
 - Admin dashboard now shows correct counts
 - Employee count is accurate (1 employee = 1 employee shown)
 - Admin count is accurate (1 admin = 1 admin shown)
 
 ### 2. **Automatic Prevention**
+
 - Future user deletions will never create orphaned records
 - No manual cleanup required
 - Maintains referential integrity automatically
 
 ### 3. **Performance**
+
 - Prevents database bloat from orphaned records
 - Keeps queries efficient
 - Reduces storage usage
 
 ### 4. **Maintainability**
+
 - Developers don't need to remember manual cleanup steps
 - Centralized cleanup logic in model hooks
 - Consistent behavior across all deletion operations
@@ -132,15 +148,18 @@ Total: 0 orphaned records ✅
 ## Technical Implementation Details
 
 ### Hook Types Used
+
 - `pre('deleteOne', { document: true })` - For document-level deletions
 - `pre(['deleteOne', 'findOneAndDelete'])` - For query-level deletions
 
 ### Error Handling
+
 - Graceful handling when models are not available
 - Comprehensive logging for debugging
 - Non-blocking failures for optional cleanup
 
 ### Dependencies
+
 - Uses dynamic model loading to avoid circular dependencies
 - Safe model checking before cleanup operations
 - Backwards compatible with existing code
@@ -150,6 +169,7 @@ Total: 0 orphaned records ✅
 The system now has built-in protection against orphaned records. However, you can:
 
 1. **Run periodic validation** (optional):
+
    ```bash
    node validateDataIntegrity.cjs
    ```
