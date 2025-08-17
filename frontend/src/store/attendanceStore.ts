@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { 
   checkIn as apiCheckIn, 
   checkOut as apiCheckOut,
+  manualCheckIn as apiManualCheckIn,
+  manualCheckOut as apiManualCheckOut,
   requestLeave as apiRequestLeave,
   getAttendanceSummary as apiGetAttendanceSummary,
   getUserLeaves as apiGetUserLeaves,
@@ -24,7 +26,10 @@ interface AttendanceState {
   pendingAction: 'check-in' | 'check-out' | null;
     // Actions
   checkIn: () => Promise<void>;
-  checkOut: () => Promise<void>;  requestLeave: (leaveData: any) => Promise<any>;
+  checkOut: () => Promise<void>;
+  manualCheckIn: (data: { check_in: string; remarks?: string }) => Promise<CheckInOutResponse>;
+  manualCheckOut: (data: { check_out: string; remarks?: string }) => Promise<CheckInOutResponse>;
+  requestLeave: (leaveData: any) => Promise<any>;
   fetchAttendanceSummary: () => Promise<void>;
   fetchUserLeaves: () => Promise<LeaveRequest[]>;
   syncLeavesToCalendar: () => Promise<void>;
@@ -98,6 +103,42 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     } catch (error: any) {
       set({ 
         error: error.response?.data?.message || 'Failed to check out. Please try again.', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  manualCheckIn: async (data: { check_in: string; remarks?: string }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiManualCheckIn(data);
+      set({ 
+        lastCheckInOut: response,
+        isLoading: false
+      });
+      return response;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to check in manually. Please try again.', 
+        isLoading: false 
+      });
+      throw error;
+    }
+  },
+
+  manualCheckOut: async (data: { check_out: string; remarks?: string }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiManualCheckOut(data);
+      set({ 
+        lastCheckInOut: response,
+        isLoading: false
+      });
+      return response;
+    } catch (error: any) {
+      set({ 
+        error: error.response?.data?.message || 'Failed to check out manually. Please try again.', 
         isLoading: false 
       });
       throw error;

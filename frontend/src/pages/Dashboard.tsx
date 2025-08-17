@@ -9,7 +9,9 @@ import LeaveRequestModal from '../components/LeaveRequestModal';
 import ScheduleModal from '../components/ScheduleModal';
 import Toast from '../components/Toast';
 import TwoFactorDialog from '../components/TwoFactorDialog';
-import { EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest } from '../api/attendance';
+import ManualAttendanceModal from '../components/ManualAttendanceModal';
+import AttendanceOptionsModal from '../components/AttendanceOptionsModal';
+import { EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest, CheckInOutResponse } from '../api/attendance';
 import RecentLeaves from '../components/RecentLeaves';
 import NotificationDrawer from '../components/NotificationDrawer';
 import { FaSync, FaVenus, FaMars, FaBell, FaGoogle, FaSignOutAlt, FaExchangeAlt } from 'react-icons/fa';
@@ -27,10 +29,12 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchToManagerView }) => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user, logout, isManager } = useAuthStore();
   const {
     checkIn,
     checkOut,
+    manualCheckIn,
+    manualCheckOut,
     requestLeave,
     fetchAttendanceSummary,
     fetchUserLeaves,
@@ -50,6 +54,8 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
   // State for modals and notifications
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isManualAttendanceModalOpen, setIsManualAttendanceModalOpen] = useState(false);
+  const [manualAttendanceType, setManualAttendanceType] = useState<'check-in' | 'check-out'>('check-in');
   const [toast, setToast] = useState<{
     visible: boolean;
     message: string;
@@ -83,6 +89,24 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
     isOpen: false,
     action: 'checkin'
   });
+
+  // Add state for attendance options modal
+  const [attendanceOptionsModal, setAttendanceOptionsModal] = useState<{
+    isOpen: boolean;
+    type: 'check-in' | 'check-out';
+  }>({
+    isOpen: false,
+    type: 'check-in'
+  });
+
+  // Debug modal states
+  useEffect(() => {
+    console.log('Modal states:', {
+      isManualAttendanceModalOpen,
+      manualAttendanceType,
+      attendanceOptionsModal
+    });
+  }, [isManualAttendanceModalOpen, manualAttendanceType, attendanceOptionsModal]);
 
   // Animation variants
   const fadeIn = {
@@ -223,6 +247,60 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
     });
   };
 
+  // New handlers for attendance options modal
+  const openCheckInOptions = () => {
+    setAttendanceOptionsModal({
+      isOpen: true,
+      type: 'check-in'
+    });
+  };
+
+  const openCheckOutOptions = () => {
+    setAttendanceOptionsModal({
+      isOpen: true,
+      type: 'check-out'
+    });
+  };
+
+  const closeAttendanceOptionsModal = () => {
+    setAttendanceOptionsModal({
+      isOpen: false,
+      type: 'check-in'
+    });
+  };
+
+  // Handler for automatic check-in
+  const handleAutomaticCheckIn = () => {
+    closeAttendanceOptionsModal();
+    initiateCheckIn();
+  };
+
+  // Handler for automatic check-out
+  const handleAutomaticCheckOut = () => {
+    closeAttendanceOptionsModal();
+    initiateCheckOut();
+  };
+
+  // Handler for manual check-in
+  const handleManualCheckInClick = () => {
+    console.log('Manual check-in clicked');
+    closeAttendanceOptionsModal();
+    // Add a small delay to ensure the options modal closes first
+    setTimeout(() => {
+      openManualCheckInModal();
+    }, 100);
+  };
+
+  // Handler for manual check-out
+  const handleManualCheckOutClick = () => {
+    console.log('Manual check-out clicked');
+    closeAttendanceOptionsModal();
+    // Add a small delay to ensure the options modal closes first
+    setTimeout(() => {
+      openManualCheckOutModal();
+    }, 100);
+  };
+
   // The actual check-in function that will be called after 2FA confirmation
   const handleCheckIn = async () => {
     try {
@@ -262,6 +340,57 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
       });
     } catch (error) {
       // Error is already handled in the store
+    }
+  };
+
+  // Manual attendance handlers
+  const openManualCheckInModal = () => {
+    console.log('Opening manual check-in modal');
+    setManualAttendanceType('check-in');
+    setIsManualAttendanceModalOpen(true);
+  };
+
+  const openManualCheckOutModal = () => {
+    console.log('Opening manual check-out modal');
+    setManualAttendanceType('check-out');
+    setIsManualAttendanceModalOpen(true);
+  };
+
+  const handleManualAttendance = async (data: { check_in?: string; check_out?: string; remarks?: string }): Promise<CheckInOutResponse> => {
+    try {
+      let response;
+      if (manualAttendanceType === 'check-in') {
+        response = await manualCheckIn({ check_in: data.check_in!, remarks: data.remarks });
+        setToast({
+          visible: true,
+          message: 'Successfully checked in manually!',
+          type: 'success'
+        });
+      } else {
+        response = await manualCheckOut({ check_out: data.check_out!, remarks: data.remarks });
+        setToast({
+          visible: true,
+          message: 'Successfully checked out manually!',
+          type: 'success'
+        });
+      }
+      
+      // Refresh attendance summary and leave balances
+      await fetchAttendanceSummary();
+      if (attendanceSummary?.employee_id) {
+        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
+        setDetailedLeaveBalances(balances);
+      }
+      
+      setIsManualAttendanceModalOpen(false);
+      return response;
+    } catch (error: any) {
+      setToast({
+        visible: true,
+        message: error.response?.data?.message || `Failed to ${manualAttendanceType.replace('-', ' ')} manually`,
+        type: 'error'
+      });
+      throw error; // Re-throw so modal can handle it
     }
   };
 
@@ -470,10 +599,16 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          {/* Switch to Manager View Button */}
-          {isManagerView && onSwitchToManagerView && (
+          {/* Switch to Manager View Button - show for managers */}
+          {isManager && (
             <button
-              onClick={() => onSwitchToManagerView()}
+              onClick={() => {
+                if (onSwitchToManagerView) {
+                  onSwitchToManagerView();
+                } else {
+                  window.location.href = '/manager';
+                }
+              }}
               className="bg-indigo-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-600 transition-colors text-sm font-medium flex items-center"
             >
               <FaExchangeAlt className="mr-2" />
@@ -576,6 +711,23 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
         onConfirm={() => twoFactorDialog.action === 'checkin' ? handleCheckIn() : handleCheckOut()}
       />
 
+      {/* Manual Attendance Modal */}
+      <ManualAttendanceModal
+        isOpen={isManualAttendanceModalOpen}
+        onClose={() => setIsManualAttendanceModalOpen(false)}
+        onSubmit={handleManualAttendance}
+        type={manualAttendanceType}
+      />
+
+      {/* Attendance Options Modal */}
+      <AttendanceOptionsModal
+        isOpen={attendanceOptionsModal.isOpen}
+        onClose={closeAttendanceOptionsModal}
+        type={attendanceOptionsModal.type}
+        onAutomaticSelect={attendanceOptionsModal.type === 'check-in' ? handleAutomaticCheckIn : handleAutomaticCheckOut}
+        onManualSelect={attendanceOptionsModal.type === 'check-in' ? handleManualCheckInClick : handleManualCheckOutClick}
+      />
+
       {/* Main dashboard content */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Quick actions card */}
@@ -586,14 +738,15 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
           variants={fadeIn}
           className="col-span-1"
         >
-          <div className="bg-gradient-to-br from-blue-500 to-teal-500 rounded-xl overflow-hidden shadow-xl h-auto sm:h-64">
+          <div className="bg-gradient-to-br from-blue-500 to-teal-500 rounded-xl overflow-hidden shadow-xl h-auto">
             <div className="p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
-                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={initiateCheckIn}
+                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={openCheckInOptions}
                   disabled={isLoading}
+                  title="Check in with current time"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center">
@@ -601,14 +754,15 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Processing...</span>
+                      <span className="hidden sm:inline">Processing...</span>
                     </div>
-                  ) : 'Check In'}
+                                      ) : 'Check In'}
                 </button>
                 <button
-                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={initiateCheckOut}
+                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={openCheckOutOptions}
                   disabled={isLoading}
+                  title="Check out with current time"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center">
@@ -616,34 +770,35 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Processing...</span>
+                      <span className="hidden sm:inline">Processing...</span>
                     </div>
                   ) : 'Check Out'}
                 </button>
                 <button
-                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base"
+                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-xs sm:text-sm"
                   onClick={() => setIsLeaveModalOpen(true)}
                 >
                   Apply Leave
                 </button>
                 <button
-                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base"
+                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-xs sm:text-sm"
                   onClick={() => setIsScheduleModalOpen(true)}
                 >
                   View Schedule
                 </button>
                 <button
-                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base"
+                  className="bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-xs sm:text-sm"
                   onClick={() => navigate('/attendance-logs')}
                 >
                   Attendance Logs
                 </button>
                 <button
                   onClick={() => setIsNotificationDrawerOpen(true)}
-                  className="relative bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-sm sm:text-base flex items-center justify-center"
+                  className="relative bg-white/30 backdrop-blur-sm hover:bg-white/40 text-white p-2 sm:p-3 rounded-lg transition-colors text-xs sm:text-sm flex items-center justify-center"
                 >
                   <FaBell className="mr-1" />
-                  Notifications
+                  <span className="hidden sm:inline">Notifications</span>
+                  <span className="sm:hidden">Notifs</span>
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                       {unreadCount > 99 ? '99+' : unreadCount}
@@ -790,6 +945,86 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
           onClearDashboard={handleClearDashboardLeaves}
         />
       </motion.div>
+
+      {/* Modals */}
+      <LeaveRequestModal
+        isOpen={isLeaveModalOpen}
+        onClose={() => setIsLeaveModalOpen(false)}
+        onSubmit={requestLeave}
+      />
+
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+      />
+
+      <TwoFactorDialog
+        isOpen={twoFactorDialog.isOpen}
+        onClose={() => setTwoFactorDialog({ isOpen: false, action: 'checkin' })}
+        onConfirm={() => {}}
+        action={twoFactorDialog.action}
+      />
+
+      <AttendanceOptionsModal
+        isOpen={attendanceOptionsModal.isOpen}
+        onClose={() => setAttendanceOptionsModal({ isOpen: false, type: 'check-in' })}
+        type={attendanceOptionsModal.type}
+        onAutomaticSelect={() => {
+          setAttendanceOptionsModal({ isOpen: false, type: 'check-in' });
+          if (attendanceOptionsModal.type === 'check-in') {
+            handleCheckIn();
+          } else {
+            handleCheckOut();
+          }
+        }}
+        onManualSelect={() => {
+          console.log('Manual selected:', attendanceOptionsModal.type);
+          console.log('About to set manual attendance type and open modal');
+          setAttendanceOptionsModal({ isOpen: false, type: 'check-in' });
+          setManualAttendanceType(attendanceOptionsModal.type);
+          setTimeout(() => {
+            console.log('Opening manual modal with type:', attendanceOptionsModal.type);
+            console.log('Current state - isManualAttendanceModalOpen should be true');
+            setIsManualAttendanceModalOpen(true);
+          }, 100);
+        }}
+      />
+
+      <ManualAttendanceModal
+        isOpen={isManualAttendanceModalOpen}
+        onClose={() => {
+          console.log('Manual modal closing');
+          setIsManualAttendanceModalOpen(false);
+        }}
+        type={manualAttendanceType || 'check-in'}
+        onSubmit={async (data) => {
+          console.log('Manual modal submit:', data, 'type:', manualAttendanceType);
+          if (manualAttendanceType === 'check-in') {
+            return await manualCheckIn({
+              check_in: data.check_in!,
+              remarks: data.remarks
+            });
+          } else {
+            return await manualCheckOut({
+              check_out: data.check_out!,
+              remarks: data.remarks
+            });
+          }
+        }}
+      />
+
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
+      />
+
+      {/* Toast notification */}
+      <Toast
+        isVisible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
     </div>
   );
 };

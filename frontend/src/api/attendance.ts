@@ -141,6 +141,26 @@ export const checkOut = async (): Promise<CheckInOutResponse> => {
   }
 };
 
+export const manualCheckIn = async (data: { check_in: string; remarks?: string }): Promise<CheckInOutResponse> => {
+  try {
+    const response = await api.post<CheckInOutResponse>('/attendance/check-in', data);
+    return response.data;
+  } catch (error) {
+    console.error('Manual check-in error:', error);
+    throw error;
+  }
+};
+
+export const manualCheckOut = async (data: { check_out: string; remarks?: string }): Promise<CheckInOutResponse> => {
+  try {
+    const response = await api.post<CheckInOutResponse>('/attendance/check-out', data);
+    return response.data;
+  } catch (error) {
+    console.error('Manual check-out error:', error);
+    throw error;
+  }
+};
+
 export const requestLeave = async (leaveData: Omit<LeaveRequest, 'id' | 'userId' | 'userName' | 'status' | 'createdAt' | 'updatedAt'>): Promise<LeaveResponse> => {
   try {
     // Get the attendance summary which includes the employee_id

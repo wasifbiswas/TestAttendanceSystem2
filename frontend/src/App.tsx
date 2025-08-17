@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { ReactNode, useEffect } from 'react';
 import Login from './pages/Login';
@@ -70,6 +70,27 @@ const ManagerRoute = ({ children }: { children: ReactNode }) => {
   return <>{children}</>;
 };
 
+// Smart Dashboard wrapper that provides manager switch functionality
+const DashboardWrapper = () => {
+  const { isManager } = useAuthStore();
+  
+  // If user is a manager, provide switch functionality
+  if (isManager) {
+    return (
+      <Dashboard 
+        isManagerView={false}
+        onSwitchToManagerView={() => {
+          // Navigate to manager dashboard
+          window.location.href = '/manager';
+        }}
+      />
+    );
+  }
+  
+  // Regular employee dashboard
+  return <Dashboard isManagerView={false} />;
+};
+
 function App() {
   const { getProfile, isAuthenticated, isAdmin, isManager } = useAuthStore();
 
@@ -117,7 +138,7 @@ function App() {
           {/* Protected routes */}          <Route path="/dashboard" element={
             <ProtectedRoute>
               <MinimalLayout>
-                <Dashboard />
+                <DashboardWrapper />
               </MinimalLayout>
             </ProtectedRoute>
           } />

@@ -52,9 +52,19 @@ const ManagerDashboard = () => {
   // State for view mode switching between manager and employee dashboard
   const [viewMode, setViewMode] = useState<'manager' | 'employee'>('manager');
 
+  // Debug logging
+  console.log('ManagerDashboard render - User:', user);
+  console.log('ManagerDashboard render - isManager:', isManager);
+  console.log('ManagerDashboard render - department:', department);
+  console.log('ManagerDashboard render - isLoading:', isLoading);
+  console.log('ManagerDashboard render - viewMode:', viewMode);
+
   useEffect(() => {
+    console.log('ManagerDashboard useEffect - isManager:', isManager);
+    
     // Check if user is manager, redirect to regular dashboard if not
     if (!isManager) {
+      console.log('User is not a manager, redirecting to /dashboard');
       navigate('/dashboard');
       return;
     }
@@ -216,15 +226,36 @@ const ManagerDashboard = () => {
   };
 
   if (isLoading) {
+    console.log('ManagerDashboard: Loading state');
     return (
       <div className="w-full h-screen flex justify-center items-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
+
+  // If user is not a manager, show a message instead of blank page
+  if (!isManager) {
+    console.log('ManagerDashboard: User is not a manager, showing access denied');
+    return (
+      <div className="w-full h-screen flex justify-center items-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">You don't have manager permissions.</p>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   // If view mode is employee, render the employee dashboard
   if (viewMode === 'employee') {
+    console.log('ManagerDashboard: Rendering employee dashboard');
     return (
       <Dashboard 
         isManagerView={true} 
@@ -232,6 +263,8 @@ const ManagerDashboard = () => {
       />
     );
   }
+  
+  console.log('ManagerDashboard: Rendering manager dashboard');
   
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6">
