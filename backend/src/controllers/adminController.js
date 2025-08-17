@@ -91,20 +91,11 @@ export const deleteUser = asyncHandler(async (req, res) => {
     throw new AppError("User not found", 404);
   }
 
-  // Check if user has employee profile
-  const employee = await Employee.findOne({ user_id: user._id });
-  if (employee) {
-    res.status(400);
-    throw new AppError(
-      "Cannot delete user with employee profile. Delete employee profile first.",
-      400
-    );
-  }
-
-  await UserRole.deleteMany({ user_id: user._id });
+  // Note: All related data cleanup (UserRole, Employee, Attendance, LeaveRequest, etc.)
+  // is handled automatically by the pre-delete hooks in the User model
   await user.deleteOne();
 
-  res.json({ message: "User removed" });
+  res.json({ message: "User and all related data removed successfully" });
 });
 
 // @desc    Assign role to user
@@ -440,19 +431,22 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
     const managerUserRoles = await UserRole.find({
       role_id: managerRole._id,
     }).populate("user_id", "-password_hash");
-    result.managers.count = managerUserRoles.length;
+
+    // Only count managers with valid user references
+    const validManagerRoles = managerUserRoles.filter(
+      (userRole) => userRole.user_id
+    );
+    result.managers.count = validManagerRoles.length;
 
     // Get manager IDs (use employee code if available)
-    for (const userRole of managerUserRoles) {
-      if (userRole.user_id) {
-        const employee = await Employee.findOne({
-          user_id: userRole.user_id._id,
-        });
-        if (employee && employee.employee_code) {
-          result.managers.ids.push(employee.employee_code);
-        } else {
-          result.managers.ids.push(userRole.user_id._id.toString());
-        }
+    for (const userRole of validManagerRoles) {
+      const employee = await Employee.findOne({
+        user_id: userRole.user_id._id,
+      });
+      if (employee && employee.employee_code) {
+        result.managers.ids.push(employee.employee_code);
+      } else {
+        result.managers.ids.push(userRole.user_id._id.toString());
       }
     }
   }
@@ -461,19 +455,22 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
     const adminUserRoles = await UserRole.find({
       role_id: adminRole._id,
     }).populate("user_id", "-password_hash");
-    result.admins.count = adminUserRoles.length;
+
+    // Only count admins with valid user references
+    const validAdminRoles = adminUserRoles.filter(
+      (userRole) => userRole.user_id
+    );
+    result.admins.count = validAdminRoles.length;
 
     // Get admin IDs (use employee code if available)
-    for (const userRole of adminUserRoles) {
-      if (userRole.user_id) {
-        const employee = await Employee.findOne({
-          user_id: userRole.user_id._id,
-        });
-        if (employee && employee.employee_code) {
-          result.admins.ids.push(employee.employee_code);
-        } else {
-          result.admins.ids.push(userRole.user_id._id.toString());
-        }
+    for (const userRole of validAdminRoles) {
+      const employee = await Employee.findOne({
+        user_id: userRole.user_id._id,
+      });
+      if (employee && employee.employee_code) {
+        result.admins.ids.push(employee.employee_code);
+      } else {
+        result.admins.ids.push(userRole.user_id._id.toString());
       }
     }
   }
