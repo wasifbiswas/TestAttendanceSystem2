@@ -269,7 +269,7 @@ export const assignDepartment = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/stats
 // @access  Private/Admin
 export const getSystemStats = asyncHandler(async (req, res) => {
-  // Get employee count - only count employees with valid user references
+  // Get total employee count - count ALL employees with valid user references (including managers)
   const validEmployees = await Employee.aggregate([
     {
       $lookup: {
@@ -399,7 +399,10 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
 
   // If roles exist, get users with these roles
   if (employeeRole) {
-    // Only count employees with valid user references
+    // Get manager role ID to exclude managers from employee count
+    const managerRoleId = managerRole ? managerRole._id : null;
+
+    // Get all valid employees first
     const validEmployees = await Employee.aggregate([
       {
         $lookup: {
@@ -415,10 +418,30 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
         },
       },
     ]);
-    result.employees.count = validEmployees.length;
 
-    // Add employee codes to the IDs array
+    // Filter out employees who also have manager role
+    const regularEmployees = [];
     for (const employee of validEmployees) {
+      // Check if this employee also has a manager role
+      let hasManagerRole = false;
+      if (managerRoleId) {
+        const managerUserRole = await UserRole.findOne({
+          user_id: employee.user_id,
+          role_id: managerRoleId,
+        });
+        hasManagerRole = !!managerUserRole;
+      }
+
+      // Only include if they don't have manager role
+      if (!hasManagerRole) {
+        regularEmployees.push(employee);
+      }
+    }
+
+    result.employees.count = regularEmployees.length;
+
+    // Add employee codes to the IDs array for regular employees only
+    for (const employee of regularEmployees) {
       if (employee.employee_code) {
         result.employees.ids.push(employee.employee_code);
       } else {
