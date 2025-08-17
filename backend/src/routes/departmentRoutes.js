@@ -6,6 +6,9 @@ import {
   updateDepartment,
   deleteDepartment,
   assignDepartmentHead,
+  removeDepartmentHead,
+  getAvailableHeads,
+  getDepartmentStats,
 } from "../controllers/departmentController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { admin, departmentManager } from "../middleware/roleMiddleware.js";
@@ -17,6 +20,9 @@ import {
 } from "../validations/departmentValidation.js";
 
 const router = express.Router();
+
+// Department statistics endpoint
+router.get("/stats", protect, admin, getDepartmentStats);
 
 // Get all departments and create new departments
 router
@@ -31,13 +37,13 @@ router
   .put(protect, admin, validate(updateDepartmentSchema), updateDepartment)
   .delete(protect, admin, deleteDepartment);
 
-// Assign department head
-router.put(
-  "/:id/head",
-  protect,
-  admin,
-  validate(assignDeptHeadSchema),
-  assignDepartmentHead
-);
+// Department head management
+router
+  .route("/:id/head")
+  .put(protect, admin, validate(assignDeptHeadSchema), assignDepartmentHead)
+  .delete(protect, admin, removeDepartmentHead);
+
+// Get available employees for department head assignment
+router.get("/:id/available-heads", protect, admin, getAvailableHeads);
 
 export default router;

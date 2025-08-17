@@ -341,6 +341,14 @@ const AdminDashboard = () => {
         </button>
 
         <button
+          onClick={() => navigate('/admin/departments')}
+          className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300"
+        >
+          <FaBuilding className="text-3xl text-indigo-500 mb-2" />
+          <span className="font-medium">Manage Departments</span>
+        </button>
+
+        <button
           onClick={() => navigate('/notifications')}
           className="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300 relative"
         >          <FaBell className="text-3xl text-yellow-500 mb-2" />

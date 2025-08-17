@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import ManagerDashboard from './pages/ManagerDashboard';
 import UserManagement from './pages/UserManagement';
 import EmployeeManagement from './pages/EmployeeManagement';
+import DepartmentManagement from './pages/DepartmentManagement';
 import ReportsPage from './pages/ReportsPage';
 import SystemSettings from './pages/SystemSettings';
 import HolidayManagement from './pages/HolidayManagement';
@@ -18,6 +19,7 @@ import NotificationsPage from './pages/NotificationsPage';
 import RoleDebugger from './components/RoleDebugger';
 import MinimalLayout from './components/MinimalLayout';
 import { GoogleCalendarProvider } from './context/GoogleCalendarContext';
+import { Toaster } from 'react-hot-toast';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -88,6 +90,18 @@ function App() {
   return (
     <Router>
       <GoogleCalendarProvider>
+        {/* Global toast notifications */}
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+          }}
+        />
+        
         {/* Debug tool for development */}
         <RoleDebugger />
         
@@ -165,6 +179,14 @@ function App() {
             <AdminRoute>
               <MinimalLayout>
                 <LeaveTypeManagement />
+              </MinimalLayout>
+            </AdminRoute>
+          } />
+
+          <Route path="/admin/departments" element={
+            <AdminRoute>
+              <MinimalLayout>
+                <DepartmentManagement />
               </MinimalLayout>
             </AdminRoute>
           } />          {/* Manager routes */}
