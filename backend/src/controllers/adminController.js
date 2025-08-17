@@ -278,9 +278,31 @@ export const assignDepartment = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/stats
 // @access  Private/Admin
 export const getSystemStats = asyncHandler(async (req, res) => {
-  // Get counts
+  // Get employee count - only count employees with valid user references
+  const validEmployees = await Employee.aggregate([
+    {
+      $lookup: {
+        from: "users",
+        localField: "user_id",
+        foreignField: "_id",
+        as: "user",
+      },
+    },
+    {
+      $match: {
+        "user.0": { $exists: true }, // Only employees with existing users
+      },
+    },
+    {
+      $count: "total",
+    },
+  ]);
+  const employeeCount = validEmployees.length > 0 ? validEmployees[0].total : 0;
+
+  // Get total users count
   const userCount = await User.countDocuments();
-  const employeeCount = await Employee.countDocuments();
+
+  // Get total departments count
   const departmentCount = await Department.countDocuments();
 
   // Get today's attendance
@@ -386,22 +408,30 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
 
   // If roles exist, get users with these roles
   if (employeeRole) {
-    const employeeUserRoles = await UserRole.find({
-      role_id: employeeRole._id,
-    }).populate("user_id", "-password_hash");
-    result.employees.count = employeeUserRoles.length;
+    // Only count employees with valid user references
+    const validEmployees = await Employee.aggregate([
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $match: {
+          "user.0": { $exists: true }, // Only employees with existing users
+        },
+      },
+    ]);
+    result.employees.count = validEmployees.length;
 
-    // Get employee IDs (use employee code if available)
-    for (const userRole of employeeUserRoles) {
-      if (userRole.user_id) {
-        const employee = await Employee.findOne({
-          user_id: userRole.user_id._id,
-        });
-        if (employee && employee.employee_code) {
-          result.employees.ids.push(employee.employee_code);
-        } else {
-          result.employees.ids.push(userRole.user_id._id.toString());
-        }
+    // Add employee codes to the IDs array
+    for (const employee of validEmployees) {
+      if (employee.employee_code) {
+        result.employees.ids.push(employee.employee_code);
+      } else {
+        result.employees.ids.push(employee._id.toString());
       }
     }
   }
