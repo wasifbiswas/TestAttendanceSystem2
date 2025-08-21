@@ -4,7 +4,7 @@ import {
   getDepartmentEmployees,
   getDepartmentLeaveRequests,
   approveDepartmentLeaveRequest,
-  rejectDepartmentLeaveRequest
+  rejectDepartmentLeaveRequest,
 } from "../controllers/managerController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { manager } from "../middleware/roleMiddleware.js";

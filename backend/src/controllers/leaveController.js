@@ -667,6 +667,10 @@ export const updateLeaveStatus = asyncHandler(async (req, res) => {
   res.json(updatedLeaveRequest);
 });
 
+// Simple in-memory cache for leave balances (5 minutes expiration)
+const leaveBalanceCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // @desc    Get leave balances for an employee
 // @route   GET /api/leaves/balance/:employeeId
 // @access  Private/Admin/Manager/Self
@@ -674,15 +678,30 @@ export const getLeaveBalances = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
   const { year } = req.query;
 
+  // Add logging to track frequency of calls
+  console.log(
+    `🔄 [${new Date().toLocaleTimeString()}] Leave balance request for employee: ${employeeId}`
+  );
+
+  // Create cache key
+  const balanceYear = year ? parseInt(year) : new Date().getFullYear();
+  const cacheKey = `${employeeId}-${balanceYear}`;
+
+  // Check cache first
+  const cachedData = leaveBalanceCache.get(cacheKey);
+  if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
+    console.log(
+      `📋 [${new Date().toLocaleTimeString()}] Returning cached leave balance for employee: ${employeeId}`
+    );
+    return res.json(cachedData.data);
+  }
+
   // Validate employee exists
   const employee = await Employee.findById(employeeId);
   if (!employee) {
     res.status(404);
     throw new AppError("Employee not found", 404);
   }
-
-  // Default to current year if not specified
-  const balanceYear = year ? parseInt(year) : new Date().getFullYear();
 
   // Get leave balances
   const leaveBalances = await LeaveBalance.find({
@@ -718,6 +737,15 @@ export const getLeaveBalances = asyncHandler(async (req, res) => {
     }
   });
 
+  // Cache the result
+  leaveBalanceCache.set(cacheKey, {
+    data: completeBalances,
+    timestamp: Date.now(),
+  });
+
+  console.log(
+    `💾 [${new Date().toLocaleTimeString()}] Cached leave balance for employee: ${employeeId}`
+  );
   res.json(completeBalances);
 });
 
@@ -772,6 +800,11 @@ export const updateLeaveBalance = asyncHandler(async (req, res) => {
       carried_forward: carried_forward || 0,
     });
   }
+
+  // Clear cache for this employee's leave balance
+  const cacheKey = `${employeeId}-${year}`;
+  leaveBalanceCache.delete(cacheKey);
+  console.log(`🗑️  Cleared leave balance cache for employee: ${employeeId}`);
 
   res.json(leaveBalance);
 });

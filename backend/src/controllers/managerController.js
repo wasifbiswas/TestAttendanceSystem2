@@ -11,8 +11,8 @@ import AppError from "../utils/errorHandler.js";
 export const getDepartmentStats = asyncHandler(async (req, res) => {
   // Get the manager's employee record to find their department
   const managerEmployee = await Employee.findOne({ user_id: req.user._id })
-    .populate('dept_id', 'dept_name')
-    .select('dept_id');
+    .populate("dept_id", "dept_name")
+    .select("dept_id");
 
   if (!managerEmployee) {
     throw new AppError("Manager employee record not found", 404);
@@ -22,10 +22,11 @@ export const getDepartmentStats = asyncHandler(async (req, res) => {
   const departmentName = managerEmployee.dept_id.dept_name;
 
   // Get all employees in the manager's department
-  const departmentEmployees = await Employee.find({ dept_id: departmentId })
-    .populate('user_id', 'full_name');
+  const departmentEmployees = await Employee.find({
+    dept_id: departmentId,
+  }).populate("user_id", "full_name");
 
-  const employeeIds = departmentEmployees.map(emp => emp._id);
+  const employeeIds = departmentEmployees.map((emp) => emp._id);
 
   // Get today's date for attendance calculation
   const today = new Date();
@@ -38,14 +39,14 @@ export const getDepartmentStats = asyncHandler(async (req, res) => {
     emp_id: { $in: employeeIds },
     check_in: {
       $gte: today,
-      $lt: tomorrow
-    }
+      $lt: tomorrow,
+    },
   });
 
   // Get pending leave requests for department
   const pendingLeaveRequests = await LeaveRequest.find({
     emp_id: { $in: employeeIds },
-    status: 'PENDING'
+    status: "PENDING",
   });
 
   // Calculate attendance statistics
@@ -56,9 +57,9 @@ export const getDepartmentStats = asyncHandler(async (req, res) => {
   // Get employees on approved leave today
   const employeesOnLeave = await LeaveRequest.find({
     emp_id: { $in: employeeIds },
-    status: 'APPROVED',
+    status: "APPROVED",
     start_date: { $lte: today },
-    end_date: { $gte: today }
+    end_date: { $gte: today },
   });
 
   const onLeaveCount = employeesOnLeave.length;
@@ -69,9 +70,9 @@ export const getDepartmentStats = asyncHandler(async (req, res) => {
     attendance: {
       present: presentCount,
       absent: absentCount - onLeaveCount, // Subtract those on leave from absent
-      onLeave: onLeaveCount
+      onLeave: onLeaveCount,
     },
-    pendingLeaveRequests: pendingLeaveRequests.length
+    pendingLeaveRequests: pendingLeaveRequests.length,
   });
 });
 
@@ -80,20 +81,21 @@ export const getDepartmentStats = asyncHandler(async (req, res) => {
 // @access  Private/Manager
 export const getDepartmentEmployees = asyncHandler(async (req, res) => {
   // Get the manager's employee record to find their department
-  const managerEmployee = await Employee.findOne({ user_id: req.user._id })
-    .select('dept_id');
+  const managerEmployee = await Employee.findOne({
+    user_id: req.user._id,
+  }).select("dept_id");
 
   if (!managerEmployee) {
     throw new AppError("Manager employee record not found", 404);
   }
 
   // Get all employees in the manager's department
-  const departmentEmployees = await Employee.find({ 
-    dept_id: managerEmployee.dept_id 
+  const departmentEmployees = await Employee.find({
+    dept_id: managerEmployee.dept_id,
   })
-    .populate('user_id', 'full_name email')
-    .populate('dept_id', 'dept_name')
-    .select('user_id dept_id designation hire_date employee_code');
+    .populate("user_id", "full_name email")
+    .populate("dept_id", "dept_name")
+    .select("user_id dept_id designation hire_date employee_code");
 
   // Get today's attendance for status
   const today = new Date();
@@ -101,44 +103,44 @@ export const getDepartmentEmployees = asyncHandler(async (req, res) => {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const employeeIds = departmentEmployees.map(emp => emp._id);
-  
+  const employeeIds = departmentEmployees.map((emp) => emp._id);
+
   const todayAttendance = await Attendance.find({
     emp_id: { $in: employeeIds },
     check_in: {
       $gte: today,
-      $lt: tomorrow
-    }
+      $lt: tomorrow,
+    },
   });
 
   // Get employees on approved leave today
   const employeesOnLeave = await LeaveRequest.find({
     emp_id: { $in: employeeIds },
-    status: 'APPROVED',
+    status: "APPROVED",
     start_date: { $lte: today },
-    end_date: { $gte: today }
+    end_date: { $gte: today },
   });
 
   const attendanceMap = new Map();
   const leaveMap = new Map();
 
-  todayAttendance.forEach(att => {
-    attendanceMap.set(att.emp_id.toString(), 'PRESENT');
+  todayAttendance.forEach((att) => {
+    attendanceMap.set(att.emp_id.toString(), "PRESENT");
   });
 
-  employeesOnLeave.forEach(leave => {
-    leaveMap.set(leave.emp_id.toString(), 'LEAVE');
+  employeesOnLeave.forEach((leave) => {
+    leaveMap.set(leave.emp_id.toString(), "LEAVE");
   });
 
   // Format response with status
-  const employeesWithStatus = departmentEmployees.map(emp => {
+  const employeesWithStatus = departmentEmployees.map((emp) => {
     const empId = emp._id.toString();
-    let status = 'ABSENT';
-    
+    let status = "ABSENT";
+
     if (leaveMap.has(empId)) {
-      status = 'LEAVE';
+      status = "LEAVE";
     } else if (attendanceMap.has(empId)) {
-      status = 'PRESENT';
+      status = "PRESENT";
     }
 
     return {
@@ -149,7 +151,7 @@ export const getDepartmentEmployees = asyncHandler(async (req, res) => {
       designation: emp.designation,
       department: emp.dept_id?.dept_name,
       hire_date: emp.hire_date,
-      status
+      status,
     };
   });
 
@@ -160,50 +162,51 @@ export const getDepartmentEmployees = asyncHandler(async (req, res) => {
 // @route   GET /api/manager/leave-requests
 // @access  Private/Manager
 export const getDepartmentLeaveRequests = asyncHandler(async (req, res) => {
-  const { status = 'PENDING' } = req.query;
+  const { status = "PENDING" } = req.query;
 
   // Get the manager's employee record to find their department
-  const managerEmployee = await Employee.findOne({ user_id: req.user._id })
-    .select('dept_id');
+  const managerEmployee = await Employee.findOne({
+    user_id: req.user._id,
+  }).select("dept_id");
 
   if (!managerEmployee) {
     throw new AppError("Manager employee record not found", 404);
   }
 
   // Get all employees in the manager's department
-  const departmentEmployees = await Employee.find({ 
-    dept_id: managerEmployee.dept_id 
-  }).select('_id');
+  const departmentEmployees = await Employee.find({
+    dept_id: managerEmployee.dept_id,
+  }).select("_id");
 
-  const employeeIds = departmentEmployees.map(emp => emp._id);
+  const employeeIds = departmentEmployees.map((emp) => emp._id);
 
   // Build filter criteria
   let filterCriteria = {
-    emp_id: { $in: employeeIds } // Only employees from manager's department
+    emp_id: { $in: employeeIds }, // Only employees from manager's department
   };
 
-  if (status && status !== 'ALL') {
+  if (status && status !== "ALL") {
     filterCriteria.status = status.toUpperCase();
   }
 
   // Get leave requests for department employees only
   const leaveRequests = await LeaveRequest.find(filterCriteria)
     .populate({
-      path: 'emp_id',
-      select: 'user_id employee_code designation dept_id',
+      path: "emp_id",
+      select: "user_id employee_code designation dept_id",
       populate: [
         {
-          path: 'user_id',
-          select: 'full_name email'
+          path: "user_id",
+          select: "full_name email",
         },
         {
-          path: 'dept_id',
-          select: 'dept_name'
-        }
-      ]
+          path: "dept_id",
+          select: "dept_name",
+        },
+      ],
     })
-    .populate('leave_type_id', 'name code description')
-    .populate('approved_by', 'user_id')
+    .populate("leave_type_id", "name code description")
+    .populate("approved_by", "user_id")
     .sort({ applied_date: -1 });
 
   res.status(200).json(leaveRequests);
@@ -217,8 +220,9 @@ export const approveDepartmentLeaveRequest = asyncHandler(async (req, res) => {
   const { comments } = req.body;
 
   // Get the manager's employee record to find their department
-  const managerEmployee = await Employee.findOne({ user_id: req.user._id })
-    .select('dept_id _id');
+  const managerEmployee = await Employee.findOne({
+    user_id: req.user._id,
+  }).select("dept_id _id");
 
   if (!managerEmployee) {
     throw new AppError("Manager employee record not found", 404);
@@ -227,35 +231,44 @@ export const approveDepartmentLeaveRequest = asyncHandler(async (req, res) => {
   // Find the leave request
   const leaveRequest = await LeaveRequest.findById(id)
     .populate({
-      path: 'emp_id',
-      select: 'dept_id user_id',
+      path: "emp_id",
+      select: "dept_id user_id",
       populate: {
-        path: 'user_id',
-        select: 'full_name'
-      }
+        path: "user_id",
+        select: "full_name",
+      },
     })
-    .populate('leave_type_id', 'name');
+    .populate("leave_type_id", "name");
 
   if (!leaveRequest) {
     throw new AppError("Leave request not found", 404);
   }
 
   // Check if the leave request is from the manager's department
-  if (leaveRequest.emp_id.dept_id.toString() !== managerEmployee.dept_id.toString()) {
-    throw new AppError("You can only approve leave requests from your own department", 403);
+  if (
+    leaveRequest.emp_id.dept_id.toString() !==
+    managerEmployee.dept_id.toString()
+  ) {
+    throw new AppError(
+      "You can only approve leave requests from your own department",
+      403
+    );
   }
 
   // Check if already processed
-  if (leaveRequest.status !== 'PENDING') {
-    throw new AppError(`Leave request is already ${leaveRequest.status.toLowerCase()}`, 400);
+  if (leaveRequest.status !== "PENDING") {
+    throw new AppError(
+      `Leave request is already ${leaveRequest.status.toLowerCase()}`,
+      400
+    );
   }
 
   // Update leave request
-  leaveRequest.status = 'APPROVED';
+  leaveRequest.status = "APPROVED";
   leaveRequest.approved_by = managerEmployee._id;
   leaveRequest.approved_date = new Date();
   leaveRequest.last_modified = new Date();
-  
+
   if (comments) {
     leaveRequest.manager_comments = comments;
   }
@@ -265,7 +278,7 @@ export const approveDepartmentLeaveRequest = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: `Leave request for ${leaveRequest.emp_id.user_id.full_name} has been approved`,
-    leaveRequest
+    leaveRequest,
   });
 });
 
@@ -277,8 +290,9 @@ export const rejectDepartmentLeaveRequest = asyncHandler(async (req, res) => {
   const { comments } = req.body;
 
   // Get the manager's employee record to find their department
-  const managerEmployee = await Employee.findOne({ user_id: req.user._id })
-    .select('dept_id _id');
+  const managerEmployee = await Employee.findOne({
+    user_id: req.user._id,
+  }).select("dept_id _id");
 
   if (!managerEmployee) {
     throw new AppError("Manager employee record not found", 404);
@@ -287,35 +301,44 @@ export const rejectDepartmentLeaveRequest = asyncHandler(async (req, res) => {
   // Find the leave request
   const leaveRequest = await LeaveRequest.findById(id)
     .populate({
-      path: 'emp_id',
-      select: 'dept_id user_id',
+      path: "emp_id",
+      select: "dept_id user_id",
       populate: {
-        path: 'user_id',
-        select: 'full_name'
-      }
+        path: "user_id",
+        select: "full_name",
+      },
     })
-    .populate('leave_type_id', 'name');
+    .populate("leave_type_id", "name");
 
   if (!leaveRequest) {
     throw new AppError("Leave request not found", 404);
   }
 
   // Check if the leave request is from the manager's department
-  if (leaveRequest.emp_id.dept_id.toString() !== managerEmployee.dept_id.toString()) {
-    throw new AppError("You can only reject leave requests from your own department", 403);
+  if (
+    leaveRequest.emp_id.dept_id.toString() !==
+    managerEmployee.dept_id.toString()
+  ) {
+    throw new AppError(
+      "You can only reject leave requests from your own department",
+      403
+    );
   }
 
   // Check if already processed
-  if (leaveRequest.status !== 'PENDING') {
-    throw new AppError(`Leave request is already ${leaveRequest.status.toLowerCase()}`, 400);
+  if (leaveRequest.status !== "PENDING") {
+    throw new AppError(
+      `Leave request is already ${leaveRequest.status.toLowerCase()}`,
+      400
+    );
   }
 
   // Update leave request
-  leaveRequest.status = 'REJECTED';
+  leaveRequest.status = "REJECTED";
   leaveRequest.approved_by = managerEmployee._id;
   leaveRequest.approved_date = new Date();
   leaveRequest.last_modified = new Date();
-  
+
   if (comments) {
     leaveRequest.manager_comments = comments;
   }
@@ -325,6 +348,6 @@ export const rejectDepartmentLeaveRequest = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: `Leave request for ${leaveRequest.emp_id.user_id.full_name} has been rejected`,
-    leaveRequest
+    leaveRequest,
   });
 });

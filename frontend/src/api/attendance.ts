@@ -199,20 +199,18 @@ export const requestLeave = async (leaveData: Omit<LeaveRequest, 'id' | 'userId'
 
 export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
   try {
-    // Add timestamp to prevent caching
-    const timestamp = new Date().getTime();
     // There are two endpoints that provide this data, try both in case one fails
     console.log('Attempting to retrieve attendance summary...');
     
     try {
       // First try the user controller endpoint
-      const response = await api.get<AttendanceSummary>(`/user/attendance/summary?_=${timestamp}`);
+      const response = await api.get<AttendanceSummary>(`/user/attendance/summary`);
       console.log('Retrieved attendance summary from user controller:', response.data);
       return response.data;
     } catch (error) {
       console.log('First endpoint failed, trying attendance controller endpoint');
       // If that fails, try the attendance controller endpoint
-      const response = await api.get<AttendanceSummary>(`/attendance/summary?_=${timestamp}`);
+      const response = await api.get<AttendanceSummary>(`/attendance/summary`);
       console.log('Retrieved attendance summary from attendance controller:', response.data);
       return response.data;
     }
@@ -224,9 +222,7 @@ export const getAttendanceSummary = async (): Promise<AttendanceSummary> => {
 
 export const getUserLeaves = async (): Promise<LeaveRequest[]> => {
   try {
-    // Add timestamp to prevent caching
-    const timestamp = new Date().getTime();
-    const response = await api.get<LeaveRequest[]>(`/user/leaves?_=${timestamp}`);
+    const response = await api.get<LeaveRequest[]>(`/user/leaves`);
     console.log('Retrieved user leaves:', response.data);
     return response.data;
   } catch (error) {
@@ -424,39 +420,8 @@ export const getLeaveRequestDetails = async (leaveId: string): Promise<DetailedL
 // Get employee leave balances
 export const getEmployeeLeaveBalances = async (employeeId: string): Promise<EmployeeLeaveBalance[]> => {
   try {
-    // Add timestamp and random nonce to prevent caching at all levels
-    const timestamp = new Date().getTime();
-    const nonce = Math.random().toString(36).substring(2, 15);
-    
-    // Handle case where employeeId contains query parameters
-    let url = `/leaves/balance/${employeeId}`;
-    if (!url.includes('?')) {
-      url += `?_=${timestamp}&nonce=${nonce}`;
-    } else {
-      url += `&_=${timestamp}&nonce=${nonce}`;
-    }
-    
-    console.log('Fetching employee leave balances from URL:', url);
+    const url = `/leaves/balance/${employeeId}`;
     const response = await api.get<EmployeeLeaveBalance[]>(url);
-    
-    // Log the retrieved leave balances for debugging
-    console.log('Retrieved leave balances:', response.data);
-    
-    // Check specifically for Annual Leave (AL) to debug the issue
-    const annualLeave = response.data.find(b => b.leave_type_id?.leave_code === 'AL');
-    if (annualLeave) {
-      console.log('Annual Leave details:', {
-        allocated: annualLeave.allocated_leaves,
-        used: annualLeave.used_leaves,
-        pending: annualLeave.pending_leaves,
-        carried: annualLeave.carried_forward,
-        remaining: annualLeave.allocated_leaves + annualLeave.carried_forward - 
-                  annualLeave.used_leaves - annualLeave.pending_leaves
-      });
-    } else {
-      console.log('No Annual Leave record found in the response');
-    }
-    
     return response.data;
   } catch (error) {
     console.error('Error fetching employee leave balances:', error);

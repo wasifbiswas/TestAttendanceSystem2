@@ -30,6 +30,41 @@ import {
 
 const router = express.Router();
 
+// Specific rate limiter for leave balance endpoint to prevent rapid reloading
+const leaveBalanceRateLimiter = (req, res, next) => {
+  if (!router.requestCounts) {
+    router.requestCounts = new Map();
+  }
+
+  const MAX_REQUESTS = 5; // Max 5 requests per minute per user/employee
+  const WINDOW_MS = 60 * 1000; // 1 minute
+
+  const key = `${req.ip}-${req.params.employeeId || "unknown"}`;
+  const now = Date.now();
+  const requestsForKey = router.requestCounts.get(key) || [];
+
+  // Remove old requests
+  const recentRequests = requestsForKey.filter(
+    (timestamp) => now - timestamp < WINDOW_MS
+  );
+
+  if (recentRequests.length >= MAX_REQUESTS) {
+    console.log(
+      `⚠️  Rate limit exceeded for leave balance request: ${key} at ${new Date().toLocaleTimeString()}`
+    );
+    return res.status(429).json({
+      message:
+        "Too many leave balance requests, please wait before trying again",
+    });
+  }
+
+  // Add current request timestamp
+  recentRequests.push(now);
+  router.requestCounts.set(key, recentRequests);
+
+  next();
+};
+
 // Leave Types routes
 router
   .route("/types")
@@ -64,7 +99,7 @@ router.get(
 // Get and update leave balances
 router
   .route("/balance/:employeeId")
-  .get(protect, selfOrManager, getLeaveBalances)
+  .get(protect, selfOrManager, leaveBalanceRateLimiter, getLeaveBalances)
   .put(protect, admin, validate(createLeaveBalanceSchema), updateLeaveBalance);
 
 // Manage individual leave requests

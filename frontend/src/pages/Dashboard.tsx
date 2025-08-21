@@ -11,7 +11,7 @@ import Toast from '../components/Toast';
 import TwoFactorDialog from '../components/TwoFactorDialog';
 import ManualAttendanceModal from '../components/ManualAttendanceModal';
 import AttendanceOptionsModal from '../components/AttendanceOptionsModal';
-import { EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest, CheckInOutResponse } from '../api/attendance';
+import { EmployeeLeaveBalance, getEmployeeLeaveBalances, cancelLeaveRequest, CheckInOutResponse, getUserLeaves } from '../api/attendance';
 import RecentLeaves from '../components/RecentLeaves';
 import NotificationDrawer from '../components/NotificationDrawer';
 import { FaSync, FaVenus, FaMars, FaBell, FaGoogle, FaSignOutAlt, FaExchangeAlt } from 'react-icons/fa';
@@ -71,8 +71,15 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
   const [detailedLeaveBalances, setDetailedLeaveBalances] = useState<EmployeeLeaveBalance[]>([]);
   const [userGender, setUserGender] = useState<'MALE' | 'FEMALE' | null>(null);
   
+  // Add state for leave history
+  const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
+  const [loadingLeaveHistory, setLoadingLeaveHistory] = useState(false);
+  
   // Add a new state for tracking refresh animation
   const [refreshingBalances, setRefreshingBalances] = useState(false);
+  
+  // Add a flag to ensure leave balances only load once ever
+  const [leaveBalancesLoaded, setLeaveBalancesLoaded] = useState(false);
   
   // Add state for notification drawer
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
@@ -182,53 +189,79 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
     return null;
   };
 
+  // Function to fetch user's leave history
+  const fetchLeaveHistory = async () => {
+    setLoadingLeaveHistory(true);
+    try {
+      const response = await getUserLeaves();
+      // Filter and sort leave history - show approved/rejected/cancelled leaves
+      const history = response
+        .filter((leave: any) => ['APPROVED', 'REJECTED', 'CANCELLED'].includes(leave.status))
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setLeaveHistory(history);
+    } catch (error) {
+      console.error('Error fetching leave history:', error);
+    } finally {
+      setLoadingLeaveHistory(false);
+    }
+  };
+
+  // Initial data load ONLY - NO POLLING to prevent any reloading
   useEffect(() => {
-    // Fetch attendance data and user leaves when component mounts or refresh is triggered
-    const loadData = async () => {
+    console.log('📡 Initial data load useEffect triggered at', new Date().toLocaleTimeString());
+    
+    const loadInitialData = async () => {
+      console.log('🔄 Loading initial data (attendance, leaves, history) at', new Date().toLocaleTimeString());
       await fetchAttendanceSummary();
       await fetchUserLeaves();
-      // Fetch detailed leave balances if we have the employee ID
-      if (attendanceSummary?.employee_id) {
-        try {
-          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
-          setDetailedLeaveBalances(balances);
-        } catch (error) {
-          console.error('Error fetching detailed leave balances:', error);
-        }
-      }
+      await fetchLeaveHistory();
+      console.log('✅ Initial data loaded successfully');
     };
 
-    loadData();
+    // Only load data once on mount - NO POLLING
+    loadInitialData();
     
-    // Set up polling to refresh data every 30 seconds
-    const intervalId = setInterval(() => {
-      loadData(); // Just reload the data directly
-    }, 30000); // 30 seconds
+    // NO setInterval - completely stop automatic refreshing
+  }, []); // Empty dependency array - only runs once on mount
 
-    return () => clearInterval(intervalId);
-  }, [fetchAttendanceSummary, fetchUserLeaves, attendanceSummary?.employee_id]);
+  // Load leave balances ONLY once when attendanceSummary is first available
+  // Using a separate useEffect with stable dependency
+  useEffect(() => {
+    if (attendanceSummary?.employee_id && detailedLeaveBalances.length === 0) {
+      console.log('� Loading leave balances for the first time for employee:', attendanceSummary.employee_id, 'at', new Date().toLocaleTimeString());
+      
+      const loadLeaveBalancesOnce = async () => {
+        try {
+          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id!);
+          setDetailedLeaveBalances(balances);
+          console.log('✅ Leave balances loaded successfully - will NOT auto-refresh');
+        } catch (error) {
+          console.error('❌ Error fetching detailed leave balances:', error);
+        }
+      };
 
-  // Effect to fetch notifications when component mounts
+      loadLeaveBalancesOnce();
+    } else if (attendanceSummary?.employee_id && detailedLeaveBalances.length > 0) {
+      console.log('🚫 Skipping leave balance load - already loaded and staying stable');
+    }
+  }, [attendanceSummary?.employee_id, detailedLeaveBalances.length]); // Only depends on existence, not contents
+
+  // Effect to fetch notifications when component mounts - NO POLLING
   useEffect(() => {
     const fetchAndLogNotifications = async () => {
       try {
         console.log('Fetching notifications for employee dashboard...');
         await fetchUserNotifications();
-        console.log('Notifications fetched successfully, unread count:', unreadCount);
+        console.log('Notifications fetched successfully');
       } catch (error) {
         console.error('Error fetching notifications:', error);
       }
     };
 
+    // Only fetch once on mount - NO POLLING to prevent any interference
     fetchAndLogNotifications();
 
-    // Set up interval to fetch notifications periodically
-    const intervalId = setInterval(() => {
-      fetchAndLogNotifications();
-    }, 60000); // Every minute
-
-    return () => clearInterval(intervalId);
-  }, [fetchUserNotifications, unreadCount]);
+  }, []); // Empty dependency array - no automatic polling
 
   // Function to start the check-in process with 2FA
   const initiateCheckIn = () => {
@@ -306,11 +339,8 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
     try {
       await checkIn();
       await fetchAttendanceSummary(); // Refresh stats after check-in
-      // Refresh leave balances after check-in (might affect certain types of leave)
-      if (attendanceSummary?.employee_id) {
-        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
-        setDetailedLeaveBalances(balances);
-      }
+      // Note: Leave balances will be updated automatically by the polling system
+      
       // Show success toast
       setToast({
         visible: true,
@@ -327,11 +357,8 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
     try {
       await checkOut();
       await fetchAttendanceSummary(); // Refresh stats after check-out
-      // Refresh leave balances after check-out (might affect certain types of leave)
-      if (attendanceSummary?.employee_id) {
-        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
-        setDetailedLeaveBalances(balances);
-      }
+      // Note: Leave balances will be updated automatically by the polling system
+      
       // Show success toast
       setToast({
         visible: true,
@@ -375,12 +402,9 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
         });
       }
       
-      // Refresh attendance summary and leave balances
+      // Refresh attendance summary 
       await fetchAttendanceSummary();
-      if (attendanceSummary?.employee_id) {
-        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
-        setDetailedLeaveBalances(balances);
-      }
+      // Note: Leave balances will be updated automatically by the polling system
       
       setIsManualAttendanceModalOpen(false);
       return response;
@@ -398,15 +422,9 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
     try {
       await requestLeave(leaveData);
       await fetchUserLeaves(); // Refresh leaves list after new request
-      // Refresh detailed leave balances after submitting a leave request
-      if (attendanceSummary?.employee_id) {
-        try {
-          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
-          setDetailedLeaveBalances(balances);
-        } catch (error) {
-          console.error('Error fetching detailed leave balances:', error);
-        }
-      }
+      await fetchLeaveHistory(); // Refresh leave history after new request
+      // Note: Leave balances will be updated automatically by the polling system
+      
       setToast({
         visible: true,
         message: 'Leave request submitted successfully',
@@ -429,11 +447,11 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
       await cancelLeaveRequest(leaveId);
       // Refresh user leaves list after deletion
       await fetchUserLeaves();
-      // Also refresh attendance summary and leave balances
+      await fetchLeaveHistory(); // Refresh leave history after deletion
+      // Also refresh attendance summary 
       if (attendanceSummary?.employee_id) {
         await fetchAttendanceSummary();
-        const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
-        setDetailedLeaveBalances(balances);
+        // Note: Leave balances will be updated automatically by the polling system
       }
       setToast({
         visible: true,
@@ -468,11 +486,11 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
 
         // After all are processed, refresh the data
         await fetchUserLeaves();
-        // Also refresh attendance summary and leave balances
+        await fetchLeaveHistory(); // Refresh leave history after batch deletion
+        // Also refresh attendance summary
         if (attendanceSummary?.employee_id) {
           await fetchAttendanceSummary();
-          const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
-          setDetailedLeaveBalances(balances);
+          // Note: Leave balances will be updated automatically by the polling system
         }
 
         setToast({
@@ -576,6 +594,74 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
               </span>
             </div>
           ))}
+      </div>
+    );
+  };
+
+  // Function to render leave history
+  const renderLeaveHistory = () => {
+    if (loadingLeaveHistory) {
+      return (
+        <div className="flex justify-center items-center h-32">
+          <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      );
+    }
+
+    if (leaveHistory.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <div className="text-white/60 mb-2">
+            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <p className="text-white/80 text-sm">No leave history yet</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3 max-h-48 overflow-y-auto">
+        {leaveHistory.slice(0, 5).map((leave: any, index: number) => (
+          <div key={leave.id || index} className="bg-white/20 backdrop-blur-sm p-3 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                  leave.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                  leave.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {leave.status}
+                </span>
+                <span className="text-white/90 font-medium text-sm">
+                  {leave.leave_type_id?.name || leave.type}
+                </span>
+              </div>
+              <span className="text-white/70 text-xs">
+                {leave.duration} {leave.duration === 1 ? 'day' : 'days'}
+              </span>
+            </div>
+            <div className="text-white/70 text-xs">
+              {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
+            </div>
+            {leave.reason && (
+              <div className="text-white/60 text-xs mt-1 truncate">
+                {leave.reason}
+              </div>
+            )}
+          </div>
+        ))}
+        {leaveHistory.length > 5 && (
+          <div className="text-center">
+            <span className="text-white/60 text-xs">
+              + {leaveHistory.length - 5} more leaves
+            </span>
+          </div>
+        )}
       </div>
     );
   };
@@ -729,7 +815,7 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
       />
 
       {/* Main dashboard content */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
         {/* Quick actions card */}
         <motion.div
           custom={0}
@@ -869,10 +955,11 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
                       if (attendanceSummary?.employee_id) {
                         try {
                           setRefreshingBalances(true);
-                          setDetailedLeaveBalances([]);
-                          await fetchAttendanceSummary();
+                          console.log('🔄 Manual refresh of leave balances at', new Date().toLocaleTimeString());
+                          // Only refresh leave balances, not attendance summary
                           const balances = await getEmployeeLeaveBalances(attendanceSummary.employee_id);
                           setDetailedLeaveBalances(balances);
+                          console.log('✅ Manual refresh completed successfully');
                           setToast({
                             visible: true,
                             message: 'Leave balances refreshed',
@@ -880,6 +967,11 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
                           });
                         } catch (error) {
                           console.error('Error refreshing leave balances:', error);
+                          setToast({
+                            visible: true,
+                            message: 'Failed to refresh leave balances',
+                            type: 'error'
+                          });
                         } finally {
                           setTimeout(() => setRefreshingBalances(false), 1000);
                         }
@@ -912,6 +1004,33 @@ const Dashboard: React.FC<DashboardProps> = ({ isManagerView = false, onSwitchTo
               ) : (
                 renderDetailedLeaveBalance()
               )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Leave History */}
+        <motion.div
+          custom={3}
+          initial="hidden"
+          animate="visible"
+          variants={fadeIn}
+          className="col-span-1"
+        >
+          <div className="bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl overflow-hidden shadow-xl h-auto sm:h-64">
+            <div className="p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center justify-between">
+                <span>Leave History</span>
+                <button
+                  onClick={fetchLeaveHistory}
+                  className="text-xs font-normal bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center px-2 py-1"
+                  title="Refresh leave history"
+                  disabled={loadingLeaveHistory}
+                >
+                  <FaSync className={`w-3 h-3 mr-1 ${loadingLeaveHistory ? 'animate-spin' : ''}`} /> 
+                  Refresh
+                </button>
+              </h3>
+              {renderLeaveHistory()}
             </div>
           </div>
         </motion.div>

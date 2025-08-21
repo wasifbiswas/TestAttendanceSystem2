@@ -46,7 +46,7 @@ const LoadingSpinner: React.FC<{ size?: 'small' | 'medium' | 'large' }> = ({ siz
   );
 };
 
-// Temporary placeholder components until imports are fixed
+// Temporary placeholder components until imports are fixed (mamke the placeholder to the cont as T**)
 const CreateDepartmentModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
