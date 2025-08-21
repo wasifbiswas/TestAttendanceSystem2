@@ -23,6 +23,15 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
   // Add console logs for debugging form visibility issues
   console.log('NotificationFormPortal rendered with isOpen =', isOpen);
   
+  // Add debugging when the component receives props
+  useEffect(() => {
+    if (isOpen) {
+      console.log('NotificationFormPortal is opening - isOpen changed to true');
+    } else {
+      console.log('NotificationFormPortal is closing - isOpen changed to false');
+    }
+  }, [isOpen]);
+  
   const { isAdmin, isManager, user } = useAuthStore();
   const { sendNotification, isLoading, error } = useNotificationStore();
   
@@ -54,9 +63,31 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
         setFetchLoading(true);
         const departmentsData = await getAllDepartments();
         console.log('Departments data:', departmentsData);
-        setDepartments(departmentsData);
+        console.log('Departments data type:', typeof departmentsData);
+        console.log('Is departments data an array?', Array.isArray(departmentsData));
+        
+        // Check if it's wrapped in a departments property (API returns {departments: [], pagination: {}})
+        let actualDepartments: any = departmentsData;
+        if (departmentsData && typeof departmentsData === 'object' && 'departments' in departmentsData) {
+          console.log('Found departments property in response:', (departmentsData as any).departments);
+          actualDepartments = (departmentsData as any).departments;
+        } else if (departmentsData && typeof departmentsData === 'object' && 'data' in departmentsData) {
+          console.log('Departments data has "data" property:', (departmentsData as any).data);
+          actualDepartments = (departmentsData as any).data;
+        }
+        
+        // Ensure we always set an array
+        if (Array.isArray(actualDepartments)) {
+          console.log('Setting departments array with length:', actualDepartments.length);
+          setDepartments(actualDepartments);
+        } else {
+          console.warn('Departments data is not an array, using empty array. Received:', actualDepartments);
+          setDepartments([]);
+        }
       } catch (err) {
         console.error('Error fetching departments:', err);
+        // Set empty array on error
+        setDepartments([]);
       } finally {
         setFetchLoading(false);
       }
@@ -80,9 +111,33 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
       }, 300);
     }
   }, [isOpen]);
+
+  // Add ESC key listener debugging
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        console.log('🔴 ESC key pressed - closing notification modal');
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      console.log('🟢 Adding ESC key listener for notification modal');
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      if (isOpen) {
+        console.log('🔴 Removing ESC key listener for notification modal');
+        window.removeEventListener('keydown', handleKeyDown);
+      }
+    };
+  }, [isOpen, onClose]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('Form submission started - preventing default behavior');
     
     try {
       // Validation checks
@@ -141,10 +196,24 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
         
         setSuccess(true);
         
-        // Auto close after 1.5 seconds on success
-        setTimeout(() => {
-          onClose();
-        }, 1500);
+        // Show success message but don't auto-close - let user close manually
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Notification sent successfully!',
+          type: 'success'
+        });
+        
+        console.log('Notification sent successfully - form will stay open until user closes');
+        
+        // Reset form after successful submission
+        setTitle('');
+        setMessage('');
+        setPriority('medium');
+        setExpiryDays(7);
+        setSendToAll(false);
+        setSelectedDepartment('');
+        
       } catch (apiError: any) {
         console.error('API error sending notification:', apiError);
         
@@ -186,13 +255,22 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-[9998]"
-        onClick={onClose}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Backdrop clicked - closing modal');
+          onClose();
+        }}
       />
       
       {/* Form Modal */}
       <div
         className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Form modal container clicked - preventing close');
+        }}
       >
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md">
           <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
@@ -200,7 +278,12 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
               Send Notification
             </h2>
             <button
-              onClick={onClose}
+              onClick={(e) => {
+                e.preventDefault();
+                console.log('Close button (X) clicked');
+                onClose();
+              }}
+              type="button"
               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <FaTimes />
@@ -315,7 +398,7 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
                             required={!sendToAll}
                           >
                             <option value="">Select a department</option>
-                            {departments.map((dept) => (
+                            {Array.isArray(departments) && departments.map((dept) => (
                               <option key={dept._id} value={dept._id}>
                                 {dept.dept_name}
                               </option>
@@ -346,7 +429,11 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log('Cancel button clicked');
+                      onClose();
+                    }}
                     className="px-4 py-2 text-gray-700 dark:text-gray-300 mr-2"
                   >
                     Cancel

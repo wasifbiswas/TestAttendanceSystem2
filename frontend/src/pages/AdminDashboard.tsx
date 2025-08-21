@@ -31,6 +31,8 @@ const GENDER_SPECIFIC_LEAVES = {
 };
 
 const AdminDashboard = () => {
+  console.log('🔵 AdminDashboard component rendered at:', new Date().toLocaleTimeString());
+  
   const navigate = useNavigate();
   const { user, logout, isAdmin } = useAuthStore();
   const { unreadCount } = useNotificationStore();
@@ -58,6 +60,16 @@ const AdminDashboard = () => {
   const [refreshingDeptStats, setRefreshingDeptStats] = useState(false);
   const [refreshingRoleCounts, setRefreshingRoleCounts] = useState(false);  // State for notification form and drawer
   const [isNotificationFormOpen, setIsNotificationFormOpen] = useState(false);
+
+  // Add debugging to track notification form state changes
+  useEffect(() => {
+    console.log('🔴 AdminDashboard: isNotificationFormOpen changed to:', isNotificationFormOpen);
+    if (isNotificationFormOpen) {
+      console.log('🟢 Notification form is now OPEN - should stay open until manually closed');
+    } else {
+      console.log('🔴 Notification form is now CLOSED');
+    }
+  }, [isNotificationFormOpen]);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
 
   const { getAdminStats: useAdminStats } = useAdminAPI();
@@ -422,16 +434,27 @@ const AdminDashboard = () => {
           </button>
             {/* Send Notification Button */}
           <button
-            onClick={() => {
-              console.log('Notification button clicked, opening form...');
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('🔴 SEND NOTIFICATION BUTTON CLICKED at:', new Date().toLocaleTimeString());
+              console.log('🔴 Current isNotificationFormOpen state:', isNotificationFormOpen);
+              
               // Set state with callback to ensure we properly track state changes
-              setIsNotificationFormOpen(true);
+              setIsNotificationFormOpen(prevState => {
+                console.log('🔴 Setting notification form state from', prevState, 'to true');
+                return true;
+              });
               
               // Add a timestamp to help track when this event happened in logs
-              console.log(`Opening notification form at ${new Date().toISOString()}`);
+              console.log(`🔴 Notification form should now be opening at ${new Date().toISOString()}`);
+              
+              // Prevent any potential form submission or page navigation
+              return false;
             }}
             className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-3 rounded-lg shadow-lg border-2 border-red-300 transition-all duration-300 text-sm flex items-center"
             data-testid="send-notification-button"
+            type="button"
           >
             <FaBell className="h-5 w-5 mr-2" />
             Send Notification
@@ -470,7 +493,8 @@ const AdminDashboard = () => {
       <NotificationFormPortal
         isOpen={isNotificationFormOpen}
         onClose={() => {
-          console.log('Closing notification form');
+          console.log('🔴 AdminDashboard: NotificationFormPortal onClose callback triggered');
+          console.log('🔴 About to set isNotificationFormOpen to false');
           setIsNotificationFormOpen(false);
         }}
       />
