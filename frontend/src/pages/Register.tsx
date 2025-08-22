@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { z } from 'zod';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { Department } from '../api/departmentApi';
+import { getActiveDepartments } from '../utils/departmentUtils';
 
 // Define the Timeout type to avoid NodeJS namespace dependency
 type TimeoutId = ReturnType<typeof setTimeout>;
@@ -80,8 +82,30 @@ const Register = () => {
   const [touchedFields, setTouchedFields] = useState<{[key: string]: boolean}>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
   const { register, isLoading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
+
+  // Fetch departments when component mounts
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        setLoadingDepartments(true);
+        const departmentsList = await getActiveDepartments();
+        setDepartments(departmentsList);
+        console.log('Fetched departments for registration:', departmentsList);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        // Fallback to empty array if fetch fails
+        setDepartments([]);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -519,19 +543,14 @@ const Register = () => {
                   color: '#374151'
                 }}
               >
-                <option value="" style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>Select a department</option>
-                <option value="HR" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>Human Resources</option>
-                <option value="IT" style={{ backgroundColor: '#f0fdf4', color: '#166534' }}>Information Technology</option>
-                <option value="Finance" style={{ backgroundColor: '#eff6ff', color: '#1e40af' }}>Finance & Accounting</option>
-                <option value="Marketing" style={{ backgroundColor: '#fef2f2', color: '#b91c1c' }}>Marketing & Communications</option>
-                <option value="Operations" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>Operations & Logistics</option>
-                <option value="Sales" style={{ backgroundColor: '#fdf2f8', color: '#9d174d' }}>Sales & Business Development</option>
-                <option value="RnD" style={{ backgroundColor: '#ecfdf5', color: '#065f46' }}>Research & Development</option>
-                <option value="Legal" style={{ backgroundColor: '#f5f3ff', color: '#5b21b6' }}>Legal & Compliance</option>
-                <option value="Customer" style={{ backgroundColor: '#fff7ed', color: '#c2410c' }}>Customer Support</option>
-                <option value="Admin" style={{ backgroundColor: '#f0f9ff', color: '#0369a1' }}>Administration</option>
-                <option value="Executive" style={{ backgroundColor: '#fafafa', color: '#171717' }}>Executive Leadership</option>
-                <option value="Product" style={{ backgroundColor: '#f0fdfa', color: '#0f766e' }}>Product Management</option>
+                <option value="">
+                  {loadingDepartments ? 'Loading departments...' : 'Select a department'}
+                </option>
+                {departments.map((dept) => (
+                  <option key={dept._id} value={dept._id}>
+                    {dept.dept_name}
+                  </option>
+                ))}
               </select>
               {validationErrors.department && touchedFields.department && (
                 <p className={errorMessageStyle}>

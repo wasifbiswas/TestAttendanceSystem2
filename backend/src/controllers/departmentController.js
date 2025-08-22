@@ -54,12 +54,14 @@ export const getAllDepartments = asyncHandler(async (req, res) => {
   );
 
   res.json({
+    success: true,
     departments: departmentsWithCounts,
     pagination: {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      total,
-      pages: Math.ceil(total / limit),
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalDepartments: total,
+      hasNextPage: parseInt(page) < Math.ceil(total / limit),
+      hasPrevPage: parseInt(page) > 1,
     },
   });
 });

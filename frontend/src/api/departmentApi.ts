@@ -119,7 +119,14 @@ export class DepartmentAPI {
 
   // Delete department
   static async delete(id: string): Promise<void> {
-    await api.delete(`/departments/${id}`);
+    console.log('DEBUG: DepartmentAPI.delete called with ID:', id);
+    try {
+      const response = await api.delete(`/departments/${id}`);
+      console.log('DEBUG: Delete API response:', response.data);
+    } catch (error: any) {
+      console.error('DEBUG: Delete API error:', error.response?.data || error.message);
+      throw error;
+    }
   }
 
   // Assign department head

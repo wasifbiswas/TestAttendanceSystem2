@@ -6,12 +6,14 @@ import {
   UserIcon,
   BuildingOfficeIcon,
   UserGroupIcon,
+  BanknotesIcon,
+  MapPinIcon,
   ChartBarIcon,
   ChevronLeftIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { showNotification } from '../utils/notifications';
-import LoadingSpinner from '../components/LoadingSpinner';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import CreateDepartmentModal from '../components/departments/CreateDepartmentModal';
 import EditDepartmentModal from '../components/departments/EditDepartmentModal';
 import DeleteDepartmentModal from '../components/departments/DeleteDepartmentModal';
@@ -125,24 +127,16 @@ const DepartmentManagement: React.FC = () => {
 
   // Handle delete department
   const handleDeleteDepartment = async () => {
-    if (!selectedDepartment) {
-      console.error('DEBUG: No department selected for deletion');
-      return;
-    }
-    
-    console.log('DEBUG: Attempting to delete department:', selectedDepartment.dept_name, selectedDepartment._id);
+    if (!selectedDepartment) return;
     
     try {
       await DepartmentAPI.delete(selectedDepartment._id);
-      console.log('DEBUG: Department deleted successfully');
       showNotification('Department deleted successfully');
       setShowDeleteModal(false);
       setSelectedDepartment(null);
       fetchDepartments();
       fetchStats();
     } catch (error: any) {
-      console.error('DEBUG: Error deleting department:', error);
-      console.error('DEBUG: Error response:', error.response?.data);
       showNotification(error.response?.data?.message || 'Failed to delete department', 'error');
     }
   };
@@ -177,6 +171,15 @@ const DepartmentManagement: React.FC = () => {
     } catch (error: any) {
       showNotification(error.response?.data?.message || 'Failed to remove department head', 'error');
     }
+  };
+
+  // Format currency
+  const formatCurrency = (amount?: number) => {
+    if (!amount) return 'N/A';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
   };
 
   if (loading && departments.length === 0) {
@@ -302,6 +305,12 @@ const DepartmentManagement: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Department Head
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Budget
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Location
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
@@ -310,13 +319,13 @@ const DepartmentManagement: React.FC = () => {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                       Loading departments...
                     </td>
                   </tr>
                 ) : departments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                       No departments found
                     </td>
                   </tr>
@@ -364,69 +373,57 @@ const DepartmentManagement: React.FC = () => {
                           <span className="text-sm text-gray-500 dark:text-gray-400">Not assigned</span>
                         )}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-900 dark:text-white">
+                          <BanknotesIcon className="w-4 h-4 mr-1 text-gray-400" />
+                          {formatCurrency(department.budget)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                          <MapPinIcon className="w-4 h-4 mr-1" />
+                          {department.location || 'Not specified'}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
                           <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log('DEBUG: View Details clicked for:', department.dept_name);
+                            onClick={() => {
                               setSelectedDepartment(department);
                               setShowDetailsModal(true);
-                              showNotification(`Opening details for ${department.dept_name}`);
                             }}
-                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                             title="View Details"
-                            type="button"
                           >
                             <BuildingOfficeIcon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log('DEBUG: Edit clicked for:', department.dept_name);
+                            onClick={() => {
                               setSelectedDepartment(department);
                               setShowEditModal(true);
-                              showNotification(`Opening edit for ${department.dept_name}`);
                             }}
-                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
                             title="Edit Department"
-                            type="button"
                           >
                             <PencilIcon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log('DEBUG: Manage Head clicked for:', department.dept_name);
+                            onClick={() => {
                               setSelectedDepartment(department);
                               setShowAssignHeadModal(true);
-                              showNotification(`Opening head management for ${department.dept_name}`);
                             }}
-                            className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 p-1 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+                            className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
                             title="Manage Department Head"
-                            type="button"
                           >
                             <UserIcon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log('DEBUG: Delete clicked for:', department.dept_name, department._id);
-                              console.log('DEBUG: Department has employees:', department.employee_count);
-                              console.log('DEBUG: Setting selectedDepartment to:', department);
+                            onClick={() => {
                               setSelectedDepartment(department);
-                              console.log('DEBUG: Setting showDeleteModal to true');
                               setShowDeleteModal(true);
-                              console.log('DEBUG: Modal states after click - showDeleteModal:', true, 'selectedDepartment:', department);
-                              showNotification(`Opening delete confirmation for ${department.dept_name}`, 'error');
                             }}
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                             title="Delete Department"
-                            type="button"
                           >
                             <TrashIcon className="w-4 h-4" />
                           </button>
@@ -533,37 +530,17 @@ const DepartmentManagement: React.FC = () => {
           />
         )}
 
-        {(() => {
-          const shouldRender = showDeleteModal && selectedDepartment;
-          console.log('DEBUG: DeleteModal render condition check:', {
-            showDeleteModal,
-            selectedDepartment: selectedDepartment ? selectedDepartment.dept_name : 'null',
-            shouldRender
-          });
-          
-          if (shouldRender) {
-            console.log('DEBUG: Rendering DeleteDepartmentModal for:', selectedDepartment.dept_name);
-            return (
-              <>
-                {/* Debug div to confirm rendering */}
-                <div className="fixed top-0 right-0 bg-red-500 text-white p-2 z-[10000]">
-                  DEBUG: Modal should be rendering for {selectedDepartment.dept_name}
-                </div>
-                <DeleteDepartmentModal
-                  isOpen={showDeleteModal}
-                  onClose={() => {
-                    console.log('DEBUG: DeleteModal onClose called');
-                    setShowDeleteModal(false);
-                    setSelectedDepartment(null);
-                  }}
-                  onConfirm={handleDeleteDepartment}
-                  department={selectedDepartment}
-                />
-              </>
-            );
-          }
-          return null;
-        })()}
+        {showDeleteModal && selectedDepartment && (
+          <DeleteDepartmentModal
+            isOpen={showDeleteModal}
+            onClose={() => {
+              setShowDeleteModal(false);
+              setSelectedDepartment(null);
+            }}
+            onConfirm={handleDeleteDepartment}
+            department={selectedDepartment}
+          />
+        )}
 
         {showAssignHeadModal && selectedDepartment && (
           <AssignHeadModal

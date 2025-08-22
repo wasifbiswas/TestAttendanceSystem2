@@ -3,16 +3,10 @@ import ReactDOM from 'react-dom';
 import { motion } from 'framer-motion';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
-import { getAllDepartments } from '../api/admin';
 import { FaTimes } from 'react-icons/fa';
 import AlertModal from './AlertModal';
-
-// Interface for department data
-interface Department {
-  _id: string;
-  dept_name: string;
-  description?: string;
-}
+import { getActiveDepartments } from '../utils/departmentUtils';
+import type { Department } from '../api/departmentApi';
 
 interface NotificationFormProps {
   isOpen: boolean;
@@ -61,27 +55,17 @@ const NotificationFormPortal: React.FC<NotificationFormProps> = ({ isOpen, onClo
       try {
         console.log('Fetching departments...');
         setFetchLoading(true);
-        const departmentsData = await getAllDepartments();
+        const departmentsData = await getActiveDepartments();
         console.log('Departments data:', departmentsData);
         console.log('Departments data type:', typeof departmentsData);
         console.log('Is departments data an array?', Array.isArray(departmentsData));
         
-        // Check if it's wrapped in a departments property (API returns {departments: [], pagination: {}})
-        let actualDepartments: any = departmentsData;
-        if (departmentsData && typeof departmentsData === 'object' && 'departments' in departmentsData) {
-          console.log('Found departments property in response:', (departmentsData as any).departments);
-          actualDepartments = (departmentsData as any).departments;
-        } else if (departmentsData && typeof departmentsData === 'object' && 'data' in departmentsData) {
-          console.log('Departments data has "data" property:', (departmentsData as any).data);
-          actualDepartments = (departmentsData as any).data;
-        }
-        
-        // Ensure we always set an array
-        if (Array.isArray(actualDepartments)) {
-          console.log('Setting departments array with length:', actualDepartments.length);
-          setDepartments(actualDepartments);
+        // The utility already returns a clean array of departments
+        if (Array.isArray(departmentsData)) {
+          console.log('Setting departments array with length:', departmentsData.length);
+          setDepartments(departmentsData);
         } else {
-          console.warn('Departments data is not an array, using empty array. Received:', actualDepartments);
+          console.warn('Departments data is not an array, using empty array. Received:', departmentsData);
           setDepartments([]);
         }
       } catch (err) {

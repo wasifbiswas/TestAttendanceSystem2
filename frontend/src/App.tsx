@@ -16,6 +16,8 @@ import LeaveTypeManagement from './pages/LeaveTypeManagement';
 import DepartmentSchedule from './pages/DepartmentSchedule';
 import AttendanceLogs from './pages/AttendanceLogs';
 import NotificationsPage from './pages/NotificationsPage';
+import TestDepartmentActions from './pages/TestDepartmentActions';
+import DebugDepartmentManagement from './pages/DebugDepartmentManagement';
 import RoleDebugger from './components/RoleDebugger';
 import MinimalLayout from './components/MinimalLayout';
 import { GoogleCalendarProvider } from './context/GoogleCalendarContext';
@@ -247,6 +249,20 @@ function App() {
               <MinimalLayout>
                 <NotificationsPage />
               </MinimalLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Debug page for department actions */}
+          <Route path="/debug-department-management" element={
+            <ProtectedRoute>
+              <DebugDepartmentManagement />
+            </ProtectedRoute>
+          } />
+
+          {/* Test page for department actions */}
+          <Route path="/test-department-actions" element={
+            <ProtectedRoute>
+              <TestDepartmentActions />
             </ProtectedRoute>
           } />
 

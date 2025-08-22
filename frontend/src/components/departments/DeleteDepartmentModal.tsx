@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from 'react';
+import { XMarkIcon, ExclamationTriangleIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
 import { Department } from '../../api/departmentApi';
 
 interface DeleteDepartmentModalProps {
@@ -16,9 +16,44 @@ const DeleteDepartmentModal: React.FC<DeleteDepartmentModalProps> = ({
   department
 }) => {
   const [loading, setLoading] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
+  const [step, setStep] = useState<'warning' | '2fa'>('warning');
+  const [countdown, setCountdown] = useState(3);
+  const [canProceed, setCanProceed] = useState(false);
+
+  // Reset modal state when opened
+  useEffect(() => {
+    if (isOpen) {
+      setStep('warning');
+      setCountdown(3);
+      setCanProceed(false);
+      setLoading(false);
+    }
+  }, [isOpen]);
+
+  // Countdown timer for 2FA step
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (step === '2fa' && countdown > 0) {
+      timer = setTimeout(() => {
+        setCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (step === '2fa' && countdown === 0) {
+      setCanProceed(true);
+    }
+    return () => clearTimeout(timer);
+  }, [step, countdown]);
+
+  const handleFirstStep = () => {
+    if (department.employee_count > 0) {
+      return; // Cannot proceed if department has employees
+    }
+    setStep('2fa');
+    setCountdown(3);
+  };
 
   const handleConfirm = async () => {
+    if (!canProceed || loading) return;
+    
     setLoading(true);
     try {
       await onConfirm();
@@ -31,146 +66,257 @@ const DeleteDepartmentModal: React.FC<DeleteDepartmentModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Check if department has employees
   const hasEmployees = department.employee_count > 0;
-  const isDeleteDisabled = hasEmployees || confirmText !== department.dept_name;
+
+  // Debug logging
+  console.log('DEBUG: DeleteDepartmentModal rendering with:', {
+    isOpen,
+    department: department.dept_name,
+    hasEmployees,
+    step,
+    countdown,
+    canProceed
+  });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay */}
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
+        {/* Background overlay with blur effect */}
         <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
           onClick={onClose}
         ></div>
 
-        {/* Modal */}
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="sm:flex sm:items-start">
-              <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 sm:mx-0 sm:h-10 sm:w-10">
-                <ExclamationTriangleIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
-              </div>
-              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                    Delete Department
-                  </h3>
+        {/* Modal Container */}
+        <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl transform transition-all duration-300 w-full max-w-md mx-4 overflow-hidden">
+          
+          {/* Step 1: Warning */}
+          {step === 'warning' && (
+            <div className="relative">
+              {/* Header with gradient */}
+              <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                      <ExclamationTriangleIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white">
+                      Delete Department
+                    </h3>
+                  </div>
                   <button
                     onClick={onClose}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
                   >
-                    <XMarkIcon className="w-6 h-6" />
+                    <XMarkIcon className="w-5 h-5" />
                   </button>
                 </div>
+              </div>
 
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Are you sure you want to delete the department "{department.dept_name}"?
+              {/* Content */}
+              <div className="p-6">
+                <div className="text-center mb-6">
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                    You are about to permanently delete this department
                   </p>
 
-                  {/* Department Info */}
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-700 dark:text-gray-300">Department:</span>
-                        <p className="text-gray-900 dark:text-white">{department.dept_name}</p>
+                  {/* Department Card */}
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center justify-center mb-3">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                        <span className="text-2xl">🏢</span>
                       </div>
-                      <div>
-                        <span className="font-medium text-gray-700 dark:text-gray-300">Status:</span>
-                        <p className={`${
-                          department.status === 'ACTIVE' 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                      {department.dept_name}
+                    </h4>
+                    <div className="flex items-center justify-center space-x-4 text-sm">
+                      <div className="flex items-center space-x-1">
+                        <span className={`w-2 h-2 rounded-full ${
+                          department.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></span>
+                        <span className="text-gray-600 dark:text-gray-400">
                           {department.status}
-                        </p>
+                        </span>
                       </div>
-                      <div>
-                        <span className="font-medium text-gray-700 dark:text-gray-300">Employees:</span>
-                        <p className="text-gray-900 dark:text-white">{department.employee_count}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700 dark:text-gray-300">Location:</span>
-                        <p className="text-gray-900 dark:text-white">{department.location || 'Not specified'}</p>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-gray-600 dark:text-gray-400">👥</span>
+                        <span className={`font-medium ${hasEmployees ? 'text-red-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {department.employee_count} employees
+                        </span>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Warning if department has employees */}
-                  {hasEmployees && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-                      <div className="flex">
-                        <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-3 mt-0.5" />
-                        <div>
-                          <h4 className="text-sm font-medium text-red-800 dark:text-red-300">
-                            Cannot delete department
-                          </h4>
-                          <p className="mt-1 text-sm text-red-700 dark:text-red-400">
-                            This department has {department.employee_count} employee{department.employee_count > 1 ? 's' : ''} assigned. 
-                            Please reassign or remove all employees before deleting this department.
-                          </p>
+                {/* Warning Messages */}
+                {hasEmployees ? (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                          <span className="text-red-600 dark:text-red-400 text-sm">🚫</span>
                         </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">
+                          Cannot Delete Department
+                        </h4>
+                        <p className="text-sm text-red-700 dark:text-red-400">
+                          This department has <strong>{department.employee_count} active employee{department.employee_count > 1 ? 's' : ''}</strong>. 
+                          Please reassign all employees before deletion.
+                        </p>
                       </div>
                     </div>
-                  )}
-
-                  {!hasEmployees && (
-                    <>
-                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
-                        <div className="flex">
-                          <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-3 mt-0.5" />
-                          <div>
-                            <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-                              This action cannot be undone
-                            </h4>
-                            <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-400">
-                              This will permanently delete the department and all associated data.
-                            </p>
-                          </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                          <span className="text-amber-600 dark:text-amber-400 text-sm">⚠️</span>
                         </div>
                       </div>
-
-                      {/* Confirmation Input */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Type the department name to confirm: <span className="font-semibold">{department.dept_name}</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={confirmText}
-                          onChange={(e) => setConfirmText(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          placeholder={`Type "${department.dept_name}" to confirm`}
-                        />
+                      <div>
+                        <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                          Permanent Action
+                        </h4>
+                        <p className="text-sm text-amber-700 dark:text-amber-400">
+                          This action cannot be undone. All department data will be permanently removed.
+                        </p>
                       </div>
-                    </>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  {!hasEmployees && (
+                    <button
+                      type="button"
+                      onClick={handleFirstStep}
+                      className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <span>Continue</span>
+                      <span>→</span>
+                    </button>
                   )}
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Footer */}
-          <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={isDeleteDisabled || loading}
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Deleting...' : 'Delete Department'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+          {/* Step 2: 2FA Confirmation */}
+          {step === '2fa' && (
+            <div className="relative">
+              {/* Header with gradient */}
+              <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-white text-xl">🔐</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">
+                    Final Confirmation
+                  </h3>
+                  <p className="text-red-100 text-sm mt-1">
+                    Security verification required
+                  </p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="text-center mb-6">
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                    You are about to permanently delete:
+                  </p>
+                  
+                  <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+                    <div className="flex items-center justify-center space-x-2">
+                      <span className="text-2xl">🏢</span>
+                      <h4 className="text-lg font-bold text-red-800 dark:text-red-300">
+                        {department.dept_name}
+                      </h4>
+                    </div>
+                  </div>
+
+                  {/* Countdown Timer */}
+                  {countdown > 0 ? (
+                    <div className="text-center">
+                      <div className="relative w-20 h-20 mx-auto mb-4">
+                        <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
+                        <div className="absolute inset-0 rounded-full border-4 border-red-500 border-t-transparent animate-spin"></div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                            {countdown}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        Security delay: {countdown} second{countdown > 1 ? 's' : ''} remaining
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        This prevents accidental deletions
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-green-600 dark:text-green-400 text-2xl">✓</span>
+                      </div>
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-2">
+                        Verification Complete
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        You may now confirm the deletion
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={loading}
+                    className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirm}
+                    disabled={!canProceed || loading}
+                    className={`flex-1 px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
+                      canProceed && !loading
+                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-xl'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{canProceed ? 'Delete Forever' : `Wait ${countdown}s`}</span>
+                        {canProceed && <span>🗑️</span>}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ interface AssignHeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAssign: (employeeId: string) => Promise<void>;
-  onRemove: (department: Department) => Promise<void>;
+  onRemove: () => Promise<void>;
   department: Department;
 }
 
@@ -52,6 +52,7 @@ const AssignHeadModal: React.FC<AssignHeadModalProps> = ({
     setLoading(true);
     try {
       await onAssign(selectedEmployeeId);
+      onClose();
     } catch (error) {
       console.error('Error assigning department head:', error);
     } finally {
@@ -62,7 +63,8 @@ const AssignHeadModal: React.FC<AssignHeadModalProps> = ({
   const handleRemove = async () => {
     setLoading(true);
     try {
-      await onRemove(department);
+      await onRemove();
+      onClose();
     } catch (error) {
       console.error('Error removing department head:', error);
     } finally {
