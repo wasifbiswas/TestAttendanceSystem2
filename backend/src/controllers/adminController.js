@@ -508,22 +508,22 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
 export const getManagerLeaveRequests = asyncHandler(async (req, res) => {
   // Get all leave requests with approver_type ADMIN
   const leaveRequests = await LeaveRequest.find({
-    approver_type: "ADMIN"
+    approver_type: "ADMIN",
   })
     .populate({
       path: "employee_id",
       select: "employee_code first_name last_name department_id",
       populate: {
         path: "department_id",
-        select: "department_name"
-      }
+        select: "department_name",
+      },
     })
     .sort({ created_at: -1 });
 
   res.json({
     success: true,
     count: leaveRequests.length,
-    data: leaveRequests
+    data: leaveRequests,
   });
 });
 
@@ -535,11 +535,10 @@ export const approveManagerLeaveRequest = asyncHandler(async (req, res) => {
   const { comment } = req.body;
 
   // Find the leave request
-  const leaveRequest = await LeaveRequest.findById(id)
-    .populate({
-      path: "employee_id",
-      select: "employee_code first_name last_name"
-    });
+  const leaveRequest = await LeaveRequest.findById(id).populate({
+    path: "employee_id",
+    select: "employee_code first_name last_name",
+  });
 
   if (!leaveRequest) {
     res.status(404);
@@ -571,7 +570,7 @@ export const approveManagerLeaveRequest = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: "Manager leave request approved successfully",
-    data: leaveRequest
+    data: leaveRequest,
   });
 });
 
@@ -583,11 +582,10 @@ export const rejectManagerLeaveRequest = asyncHandler(async (req, res) => {
   const { comment } = req.body;
 
   // Find the leave request
-  const leaveRequest = await LeaveRequest.findById(id)
-    .populate({
-      path: "employee_id",
-      select: "employee_code first_name last_name"
-    });
+  const leaveRequest = await LeaveRequest.findById(id).populate({
+    path: "employee_id",
+    select: "employee_code first_name last_name",
+  });
 
   if (!leaveRequest) {
     res.status(404);
@@ -619,6 +617,6 @@ export const rejectManagerLeaveRequest = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: "Manager leave request rejected successfully",
-    data: leaveRequest
+    data: leaveRequest,
   });
 });

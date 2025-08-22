@@ -158,19 +158,24 @@ LeaveRequestSchema.pre("save", async function (next) {
       }
 
       // Check if employee is a department head
-      const isDepartmentHead = await Department.findOne({ dept_head_id: this.emp_id });
-      
+      const isDepartmentHead = await Department.findOne({
+        dept_head_id: this.emp_id,
+      });
+
       // Check if employee has manager role
-      const userRoles = await UserRole.find({ user_id: employee.user_id._id }).populate("role_id");
-      const hasManagerRole = userRoles.some(ur => ur.role_id.role_name === "MANAGER");
-      
+      const userRoles = await UserRole.find({
+        user_id: employee.user_id._id,
+      }).populate("role_id");
+      const hasManagerRole = userRoles.some(
+        (ur) => ur.role_id.role_name === "MANAGER"
+      );
+
       // If employee is department head or has manager role, route to admin
       if (isDepartmentHead || hasManagerRole) {
         this.approver_type = "ADMIN";
       } else {
         this.approver_type = "MANAGER";
       }
-
     } catch (error) {
       console.error("Error determining approver type:", error);
       return next(error);
