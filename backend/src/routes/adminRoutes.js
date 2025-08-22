@@ -9,6 +9,9 @@ import {
   getSystemStats,
   getUserRoleCounts,
   assignDepartment,
+  getManagerLeaveRequests,
+  approveManagerLeaveRequest,
+  rejectManagerLeaveRequest,
 } from "../controllers/adminController.js";
 import {
   generateAttendanceReport,
@@ -179,6 +182,11 @@ router.post("/leave-requests/:id/deny", async (req, res) => {
     return res.status(500).json({ message: "Failed to deny leave request" });
   }
 });
+
+// Manager leave requests (for admin approval)
+router.get("/manager-leave-requests", getManagerLeaveRequests);
+router.put("/manager-leave-requests/:id/approve", approveManagerLeaveRequest);
+router.put("/manager-leave-requests/:id/reject", rejectManagerLeaveRequest);
 
 // Department statistics
 router.get("/departments/stats", async (req, res) => {

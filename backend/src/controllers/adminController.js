@@ -1,4 +1,5 @@
 import asyncHandler from "express-async-handler";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
 import UserRole from "../models/UserRole.js";
@@ -499,4 +500,125 @@ export const getUserRoleCounts = asyncHandler(async (req, res) => {
   }
 
   res.json(result);
+});
+
+// @desc    Get manager leave requests for admin approval
+// @route   GET /api/admin/manager-leave-requests
+// @access  Private/Admin
+export const getManagerLeaveRequests = asyncHandler(async (req, res) => {
+  // Get all leave requests with approver_type ADMIN
+  const leaveRequests = await LeaveRequest.find({
+    approver_type: "ADMIN"
+  })
+    .populate({
+      path: "employee_id",
+      select: "employee_code first_name last_name department_id",
+      populate: {
+        path: "department_id",
+        select: "department_name"
+      }
+    })
+    .sort({ created_at: -1 });
+
+  res.json({
+    success: true,
+    count: leaveRequests.length,
+    data: leaveRequests
+  });
+});
+
+// @desc    Approve manager leave request
+// @route   PUT /api/admin/manager-leave-requests/:id/approve
+// @access  Private/Admin
+export const approveManagerLeaveRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { comment } = req.body;
+
+  // Find the leave request
+  const leaveRequest = await LeaveRequest.findById(id)
+    .populate({
+      path: "employee_id",
+      select: "employee_code first_name last_name"
+    });
+
+  if (!leaveRequest) {
+    res.status(404);
+    throw new AppError("Leave request not found", 404);
+  }
+
+  // Verify this is a manager's leave request (approver_type should be ADMIN)
+  if (leaveRequest.approver_type !== "ADMIN") {
+    res.status(403);
+    throw new AppError("This leave request is not for admin approval", 403);
+  }
+
+  // Check if already processed
+  if (leaveRequest.status !== "pending") {
+    res.status(400);
+    throw new AppError("Leave request has already been processed", 400);
+  }
+
+  // Update leave request status
+  leaveRequest.status = "approved";
+  leaveRequest.approved_by = req.user.id;
+  leaveRequest.approved_at = new Date();
+  if (comment) {
+    leaveRequest.admin_comment = comment;
+  }
+
+  await leaveRequest.save();
+
+  res.json({
+    success: true,
+    message: "Manager leave request approved successfully",
+    data: leaveRequest
+  });
+});
+
+// @desc    Reject manager leave request
+// @route   PUT /api/admin/manager-leave-requests/:id/reject
+// @access  Private/Admin
+export const rejectManagerLeaveRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { comment } = req.body;
+
+  // Find the leave request
+  const leaveRequest = await LeaveRequest.findById(id)
+    .populate({
+      path: "employee_id",
+      select: "employee_code first_name last_name"
+    });
+
+  if (!leaveRequest) {
+    res.status(404);
+    throw new AppError("Leave request not found", 404);
+  }
+
+  // Verify this is a manager's leave request (approver_type should be ADMIN)
+  if (leaveRequest.approver_type !== "ADMIN") {
+    res.status(403);
+    throw new AppError("This leave request is not for admin approval", 403);
+  }
+
+  // Check if already processed
+  if (leaveRequest.status !== "pending") {
+    res.status(400);
+    throw new AppError("Leave request has already been processed", 400);
+  }
+
+  // Update leave request status
+  leaveRequest.status = "rejected";
+  leaveRequest.approved_by = req.user.id;
+  leaveRequest.approved_at = new Date();
+  if (comment) {
+    leaveRequest.admin_comment = comment;
+  }
+
+  await leaveRequest.save();
+
+  res.json({
+    success: true,
+    message: "Manager leave request rejected successfully",
+    data: leaveRequest
+  });
 });

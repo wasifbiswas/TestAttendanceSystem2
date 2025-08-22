@@ -50,6 +50,11 @@ const LeaveRequestSchema = new mongoose.Schema(
       ref: "Employee",
       default: null,
     },
+    approver_type: {
+      type: String,
+      enum: ["MANAGER", "ADMIN"],
+      default: "MANAGER",
+    },
     rejection_reason: {
       type: String,
       trim: true,
@@ -134,6 +139,43 @@ LeaveRequestSchema.pre("save", async function (next) {
     }
   }
 
+  next();
+});
+
+// Pre-save hook to determine approver type based on employee role
+LeaveRequestSchema.pre("save", async function (next) {
+  if (this.isNew) {
+    try {
+      // Get employee details to determine if they are a manager
+      const Employee = mongoose.model("Employee");
+      const Department = mongoose.model("Department");
+      const UserRole = mongoose.model("UserRole");
+      const Role = mongoose.model("Role");
+
+      const employee = await Employee.findById(this.emp_id).populate("user_id");
+      if (!employee) {
+        return next(new Error("Employee not found"));
+      }
+
+      // Check if employee is a department head
+      const isDepartmentHead = await Department.findOne({ dept_head_id: this.emp_id });
+      
+      // Check if employee has manager role
+      const userRoles = await UserRole.find({ user_id: employee.user_id._id }).populate("role_id");
+      const hasManagerRole = userRoles.some(ur => ur.role_id.role_name === "MANAGER");
+      
+      // If employee is department head or has manager role, route to admin
+      if (isDepartmentHead || hasManagerRole) {
+        this.approver_type = "ADMIN";
+      } else {
+        this.approver_type = "MANAGER";
+      }
+
+    } catch (error) {
+      console.error("Error determining approver type:", error);
+      return next(error);
+    }
+  }
   next();
 });
 
