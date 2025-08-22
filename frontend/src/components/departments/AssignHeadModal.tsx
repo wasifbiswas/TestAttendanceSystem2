@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, UserIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, UserIcon, CheckIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon } from '@heroicons/react/24/solid';
 import { Department, Employee } from '../../api/departmentApi';
 import DepartmentAPI from '../../api/departmentApi';
 
@@ -19,16 +20,33 @@ const AssignHeadModal: React.FC<AssignHeadModalProps> = ({
   department
 }) => {
   const [availableEmployees, setAvailableEmployees] = useState<Employee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [fetchingEmployees, setFetchingEmployees] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  if (!isOpen) return null;
 
   // Fetch available employees when modal opens
   useEffect(() => {
     if (isOpen && department) {
       fetchAvailableEmployees();
+      setSelectedEmployeeId(department.dept_head_id?._id || '');
     }
   }, [isOpen, department]);
+
+  // Filter employees based on search term
+  useEffect(() => {
+    const filtered = availableEmployees.filter(employee =>
+      employee.user_id.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.user_id.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.employee_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.position && employee.position.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+    setFilteredEmployees(filtered);
+  }, [availableEmployees, searchTerm]);
 
   const fetchAvailableEmployees = async () => {
     setFetchingEmployees(true);
@@ -75,154 +93,260 @@ const AssignHeadModal: React.FC<AssignHeadModalProps> = ({
   if (!isOpen) return null;
 
   const currentHead = department.dept_head_id;
+  const hasChanges = selectedEmployeeId !== (department.dept_head_id?._id || '');
+  const isRemoving = department.dept_head_id && !selectedEmployeeId;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay */}
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
+        {/* Background overlay with blur effect */}
         <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
           onClick={onClose}
         ></div>
 
-        {/* Modal */}
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="sm:flex sm:items-start">
-              <div className="w-full mt-3 text-center sm:mt-0 sm:text-left">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+        {/* Modal Container */}
+        <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl transform transition-all duration-300 w-full max-w-2xl mx-4 overflow-hidden">
+          
+          {/* Header with gradient */}
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">👑</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
                     Manage Department Head
                   </h3>
-                  <button
-                    onClick={onClose}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                  >
-                    <XMarkIcon className="w-6 h-6" />
-                  </button>
-                </div>
-
-                {/* Department Info */}
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Department: {department.dept_name}
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Employees: {department.employee_count}
+                  <p className="text-purple-100 text-sm">
+                    {department.dept_name}
                   </p>
                 </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
+                disabled={loading}
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
 
-                {/* Current Department Head */}
-                {currentHead && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Current Department Head
-                    </h4>
-                    <div className="flex items-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <UserIcon className="w-10 h-10 text-blue-500 mr-3" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {currentHead.user_id.full_name}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {currentHead.employee_code} • {currentHead.user_id.email}
-                        </p>
+          {/* Content */}
+          <div className="p-6">
+            {/* Current Head Section */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                Current Department Head
+              </h4>
+              {currentHead ? (
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <UserCircleIcon className="w-12 h-12 text-purple-600 dark:text-purple-400" />
+                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">👑</span>
                       </div>
-                      <button
-                        onClick={handleRemove}
-                        disabled={loading}
-                        className="ml-3 px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Remove
-                      </button>
                     </div>
-                  </div>
-                )}
-
-                {/* Available Employees */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    {currentHead ? 'Change Department Head' : 'Assign Department Head'}
-                  </h4>
-
-                  {fetchingEmployees ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="w-6 h-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
-                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading employees...</span>
-                    </div>
-                  ) : availableEmployees.length === 0 ? (
-                    <div className="text-center py-8">
-                      <UserIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {currentHead.user_id.full_name}
+                      </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        No employees available in this department
+                        {currentHead.employee_code} • {currentHead.user_id.email}
                       </p>
                     </div>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {availableEmployees.map((employee) => (
-                        <label
-                          key={employee._id}
-                          className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
-                            selectedEmployeeId === employee._id
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
-                              : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="employeeHead"
-                            value={employee._id}
-                            checked={selectedEmployeeId === employee._id}
-                            onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                            className="sr-only"
-                          />
-                          <UserIcon className="w-8 h-8 text-gray-400 mr-3" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {employee.user_id.full_name}
-                            </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
-                              {employee.employee_code} • {employee.user_id.email}
-                            </p>
-                            {employee.position && (
-                              <p className="text-xs text-gray-500 dark:text-gray-500">
-                                {employee.position}
-                              </p>
-                            )}
-                          </div>
-                          {selectedEmployeeId === employee._id && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          )}
-                        </label>
-                      ))}
+                    <div className="text-right">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        Current Head
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
+              ) : (
+                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4">
+                  <div className="flex items-center justify-center space-x-2 text-gray-500 dark:text-gray-400">
+                    <UserIcon className="w-5 h-5" />
+                    <span>No department head assigned</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Search Section */}
+            <div className="mb-4">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 block">
+                Select New Department Head
+              </label>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search employees by name, email, or position..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
               </div>
+            </div>
+
+            {/* Employee List */}
+            <div className="max-h-80 overflow-y-auto">
+              {fetchingEmployees ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                  <span className="ml-3 text-gray-600 dark:text-gray-400">Loading employees...</span>
+                </div>
+              ) : filteredEmployees.length === 0 ? (
+                <div className="text-center py-8">
+                  <UserIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {searchTerm ? 'No employees found matching your search' : 'No available employees found'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* None option */}
+                  <label className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                    selectedEmployeeId === '' 
+                      ? 'border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700' 
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="employee"
+                      value=""
+                      checked={selectedEmployeeId === ''}
+                      onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                      className="sr-only"
+                    />
+                    <div className="flex items-center space-x-3 flex-1">
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                        <span className="text-red-600 dark:text-red-400">✕</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          Remove Department Head
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          No one will be assigned as department head
+                        </p>
+                      </div>
+                      {selectedEmployeeId === '' && (
+                        <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                          <CheckIcon className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </label>
+
+                  {/* Employee options */}
+                  {filteredEmployees.map((employee) => (
+                    <label
+                      key={employee._id}
+                      className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                        selectedEmployeeId === employee._id 
+                          ? 'border-purple-300 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-700' 
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="employee"
+                        value={employee._id}
+                        checked={selectedEmployeeId === employee._id}
+                        onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center space-x-3 flex-1">
+                        <div className="relative">
+                          <UserCircleIcon className="w-10 h-10 text-purple-600 dark:text-purple-400" />
+                          {employee._id === currentHead?._id && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs">👑</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {employee.user_id.full_name}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {employee.employee_code} • {employee.user_id.email}
+                          </p>
+                          {employee.position && (
+                            <p className="text-sm text-purple-600 dark:text-purple-400">
+                              {employee.position}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {employee._id === currentHead?._id && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 mb-2">
+                              Current
+                            </span>
+                          )}
+                          {selectedEmployeeId === employee._id && (
+                            <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                              <CheckIcon className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-            {selectedEmployeeId && selectedEmployeeId !== currentHead?._id && (
-              <button
-                type="button"
-                onClick={handleAssign}
-                disabled={loading || !selectedEmployeeId}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Assigning...' : 'Assign as Head'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-            >
-              {selectedEmployeeId && selectedEmployeeId !== currentHead?._id ? 'Cancel' : 'Close'}
-            </button>
+          <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {hasChanges && (
+                  <span>
+                    {isRemoving ? '⚠️ This will remove the current department head' : '✨ This will assign a new department head'}
+                  </span>
+                )}
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={loading}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                {hasChanges && (
+                  <button
+                    type="button"
+                    onClick={isRemoving ? handleRemove : handleAssign}
+                    disabled={loading}
+                    className={`px-6 py-2 rounded-xl font-medium transition-all duration-200 flex items-center space-x-2 ${
+                      isRemoving 
+                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white'
+                    } shadow-lg hover:shadow-xl disabled:opacity-50`}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{isRemoving ? 'Remove Head' : 'Assign Head'}</span>
+                        <span>{isRemoving ? '🗑️' : '👑'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
