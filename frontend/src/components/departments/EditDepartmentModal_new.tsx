@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, CheckIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PencilSquareIcon, CheckIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { BuildingOfficeIcon } from '@heroicons/react/24/solid';
 import { Department, UpdateDepartmentData } from '../../api/departmentApi';
 
@@ -19,11 +19,10 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
   const [formData, setFormData] = useState<UpdateDepartmentData>({
     dept_name: '',
     description: '',
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    location: '',
+    budget: undefined
   });
-  const [departmentCode, setDepartmentCode] = useState('');
-  const [departmentType, setDepartmentType] = useState('Operations');
-  const [workingHours, setWorkingHours] = useState('9:00 AM - 5:00 PM');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -33,12 +32,10 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
       setFormData({
         dept_name: department.dept_name,
         description: department.description || '',
-        status: department.status
+        status: department.status,
+        location: department.location || '',
+        budget: department.budget
       });
-      // Generate department code if not exists (first 3 letters of dept name + employee count)
-      setDepartmentCode(department.dept_name.substring(0, 3).toUpperCase() + department.employee_count.toString().padStart(3, '0'));
-      setDepartmentType('Operations'); // Default value, can be customized
-      setWorkingHours('9:00 AM - 5:00 PM'); // Default working hours
     }
   }, [department]);
 
@@ -57,7 +54,9 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
       await onSubmit({
         dept_name: formData.dept_name.trim(),
         description: formData.description?.trim() || '',
-        status: formData.status
+        status: formData.status,
+        location: formData.location?.trim() || '',
+        budget: formData.budget
       });
       onClose();
     } catch (error) {
@@ -69,19 +68,10 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    if (name === 'departmentCode') {
-      setDepartmentCode(value);
-    } else if (name === 'departmentType') {
-      setDepartmentType(value);
-    } else if (name === 'workingHours') {
-      setWorkingHours(value);
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'budget' ? (value ? parseFloat(value) : undefined) : value
+    }));
     
     // Clear error when user starts typing
     if (errors[name]) {
@@ -196,7 +186,7 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
                 />
               </div>
 
-              {/* Status and Department Code Row */}
+              {/* Status and Location Row */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -215,68 +205,37 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Department Code
+                    Location
                   </label>
                   <input
                     type="text"
-                    name="departmentCode"
-                    value={departmentCode}
+                    name="location"
+                    value={formData.location}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="e.g., HR001, IT002"
+                    placeholder="Enter location"
                   />
                 </div>
               </div>
 
-              {/* Department Type and Working Hours Row */}
+              {/* Budget and Employee Count Row */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Department Type
+                    Budget ($)
                   </label>
-                  <select
-                    name="departmentType"
-                    value={departmentType}
+                  <input
+                    type="number"
+                    name="budget"
+                    value={formData.budget || ''}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="Operations">🏭 Operations</option>
-                    <option value="Administrative">📋 Administrative</option>
-                    <option value="Technical">⚙️ Technical</option>
-                    <option value="Support">🛠️ Support</option>
-                    <option value="Management">👔 Management</option>
-                    <option value="Sales">💼 Sales</option>
-                    <option value="Finance">💰 Finance</option>
-                    <option value="HR">👥 Human Resources</option>
-                    <option value="IT">💻 Information Technology</option>
-                    <option value="Marketing">📈 Marketing</option>
-                  </select>
+                    min="0"
+                    step="0.01"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Enter budget"
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Working Hours
-                  </label>
-                  <select
-                    name="workingHours"
-                    value={workingHours}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="9:00 AM - 5:00 PM">🕘 9:00 AM - 5:00 PM</option>
-                    <option value="8:00 AM - 4:00 PM">🕗 8:00 AM - 4:00 PM</option>
-                    <option value="10:00 AM - 6:00 PM">🕙 10:00 AM - 6:00 PM</option>
-                    <option value="7:00 AM - 3:00 PM">🕖 7:00 AM - 3:00 PM</option>
-                    <option value="12:00 PM - 8:00 PM">🕛 12:00 PM - 8:00 PM</option>
-                    <option value="6:00 PM - 2:00 AM">🕕 6:00 PM - 2:00 AM (Night Shift)</option>
-                    <option value="Flexible Hours">⏰ Flexible Hours</option>
-                    <option value="24/7 Operations">🔄 24/7 Operations</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Priority Level and Employee Capacity Row */}
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     Current Employees
@@ -285,22 +244,6 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
                     <span className="text-lg mr-2">👥</span>
                     <span className="font-medium">{department.employee_count} employees</span>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Priority Level
-                  </label>
-                  <select
-                    name="priorityLevel"
-                    defaultValue="Medium"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="Critical">🔴 Critical</option>
-                    <option value="High">🟠 High</option>
-                    <option value="Medium">🟡 Medium</option>
-                    <option value="Low">🟢 Low</option>
-                  </select>
                 </div>
               </div>
 
