@@ -68,22 +68,27 @@ router.get("/leave-requests/pending", async (req, res) => {
         // If the data is not in the expected format, transform it
         if (Array.isArray(data)) {
           // Map the data to match the expected format in the frontend
-          const formattedData = data.map((leave) => ({
-            id: leave._id.toString(),
-            userId: leave.emp_id.user_id._id.toString(),
-            userName: leave.emp_id.user_id.full_name,
-            employee_id: leave.emp_id._id.toString(),
-            employee_code:
-              leave.emp_id.employee_code ||
-              "EMP-" + leave.emp_id._id.toString().substring(0, 5),
-            type: leave.leave_type_id.leave_name,
-            start_date: leave.start_date,
-            end_date: leave.end_date,
-            reason: leave.reason,
-            status: leave.status,
-            createdAt: leave.applied_date,
-            updatedAt: leave.last_modified,
-          }));
+          const formattedData = data
+            .filter((leave) => leave.emp_id && leave.emp_id.user_id) // Filter out incomplete records
+            .map((leave) => ({
+              id: leave._id.toString(),
+              userId: leave.emp_id.user_id._id.toString(),
+              userName: leave.emp_id.user_id.full_name,
+              employee_id: leave.emp_id._id.toString(),
+              employee_code:
+                leave.emp_id.employee_code ||
+                "EMP-" + leave.emp_id._id.toString().substring(0, 5),
+              type:
+                leave.leave_type_id?.leave_name ||
+                leave.leave_type_id?.name ||
+                "Unknown",
+              start_date: leave.start_date,
+              end_date: leave.end_date,
+              reason: leave.reason,
+              status: leave.status,
+              createdAt: leave.applied_date,
+              updatedAt: leave.last_modified,
+            }));
 
           // Send the formatted data
           return originalRes.json(formattedData);
@@ -125,9 +130,18 @@ router.post("/leave-requests/:id/approve", async (req, res) => {
       return res.status(404).json({ message: "Leave request not found" });
     }
 
+    if (!leaveRequest.emp_id) {
+      console.error(`Leave request ${leaveId} has no employee associated`);
+      return res
+        .status(400)
+        .json({ message: "Leave request has no employee associated" });
+    }
+
     console.log(`Processing leave approval for leave ID: ${leaveId}`);
     console.log(
-      `Leave details: Type=${leaveRequest.leave_type_id.leave_code}, Duration=${leaveRequest.duration} days`
+      `Leave details: Type=${
+        leaveRequest.leave_type_id?.leave_code || "Unknown"
+      }, Duration=${leaveRequest.duration} days`
     );
 
     // Call the controller function to update status which will handle balance updates

@@ -404,3 +404,30 @@ export const getDepartmentStats = asyncHandler(async (req, res) => {
     },
   });
 });
+
+// @desc    Get public departments for registration (no auth required)
+// @route   GET /api/public-departments
+// @access  Public
+export const getPublicDepartments = asyncHandler(async (req, res) => {
+  try {
+    console.log("[DEBUG] getPublicDepartments endpoint hit");
+
+    // Get only active departments with basic info for registration
+    const departments = await Department.find({
+      status: "ACTIVE",
+    })
+      .select("_id dept_name description")
+      .sort({ dept_name: 1 });
+
+    console.log(`[DEBUG] Found ${departments.length} active departments`);
+
+    res.json({
+      success: true,
+      count: departments.length,
+      departments,
+    });
+  } catch (error) {
+    console.error("[DEBUG] Error in getPublicDepartments:", error);
+    throw error;
+  }
+});

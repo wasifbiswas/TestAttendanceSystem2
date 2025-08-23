@@ -109,9 +109,11 @@ const ManagerDashboard = () => {
     setRefreshingEmployees(true);
     try {
       const data = await getDepartmentEmployees();
-      setDepartmentEmployees(data);
+      // Extract the employees array from the response
+      setDepartmentEmployees(Array.isArray(data) ? data : data?.employees || []);
     } catch (error) {
       console.error('Error fetching department employees:', error);
+      setDepartmentEmployees([]); // Set to empty array on error
     } finally {
       setTimeout(() => setRefreshingEmployees(false), 1000);
     }
@@ -525,23 +527,31 @@ const ManagerDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {departmentEmployees.map((employee) => (
-                    <tr key={employee.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {employee.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          employee.status === 'PRESENT' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                          employee.status === 'ABSENT' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                          employee.status === 'LEAVE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
-                          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                        }`}>
-                          {employee.status}
-                        </span>
+                  {Array.isArray(departmentEmployees) && departmentEmployees.length > 0 ? (
+                    departmentEmployees.map((employee) => (
+                      <tr key={employee.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {employee.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            employee.status === 'PRESENT' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                            employee.status === 'ABSENT' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                            employee.status === 'LEAVE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          }`}>
+                            {employee.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={2} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No employees found in this department
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

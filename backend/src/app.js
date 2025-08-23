@@ -15,6 +15,7 @@ import roleRoutes from "./routes/roleRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import managerRoutes from "./routes/managerRoutes.js";
+import { getPublicDepartments } from "./controllers/departmentController.js";
 
 // Load environment variables
 dotenv.config();
@@ -113,6 +114,7 @@ app.get("/api/debug/auth", async (req, res) => {
 });
 
 // API Routes
+app.get("/api/public-departments", getPublicDepartments); // Public endpoint - no auth required
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
