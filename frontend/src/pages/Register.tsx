@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { z } from 'zod';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { Department } from '../api/departmentApi';
-import { getActiveDepartments } from '../utils/departmentUtils';
+import { getPublicDepartments } from '../utils/departmentUtils';
 
 // Define the Timeout type to avoid NodeJS namespace dependency
 type TimeoutId = ReturnType<typeof setTimeout>;
@@ -92,7 +92,7 @@ const Register = () => {
     const fetchDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        const departmentsList = await getActiveDepartments();
+        const departmentsList = await getPublicDepartments();
         setDepartments(departmentsList);
         console.log('Fetched departments for registration:', departmentsList);
       } catch (error) {
@@ -235,51 +235,34 @@ const Register = () => {
     return null;
   };
 
-  // Validate the entire form with improved error messages
+  // Validate the entire form using Zod schema
   const validateForm = () => {
-    const requiredFields = ['username', 'password', 'confirm_password', 'email', 'first_name', 'last_name', 'department', 'gender'];
-    let isValid = true;
+    const result = registerSchema.safeParse(formData);
+    
+    if (result.success) {
+      setValidationErrors({});
+      return true;
+    }
+    
+    // Convert Zod errors to our FormErrors format
     const errors: FormErrors = {};
-    
-    // Validate each required field
-    requiredFields.forEach(field => {
-      const fieldValue = formData[field as keyof typeof formData] || '';
-      const fieldErrors = validateField(field, fieldValue, formData);
-      
-      if (fieldErrors) {
-        errors[field] = fieldErrors;
-        isValid = false;
-        
-        // Mark field as touched when validation fails
-        setTouchedFields(prev => ({
-          ...prev,
-          [field]: true
-        }));
+    result.error.issues.forEach(issue => {
+      const field = issue.path[0] as string;
+      if (!errors[field]) {
+        errors[field] = [];
       }
+      errors[field].push(issue.message);
     });
     
-    // Validate optional fields that have values
-    const optionalFields = ['contact_number'];
-    optionalFields.forEach(field => {
-      const fieldValue = formData[field as keyof typeof formData] || '';
-      if (fieldValue) {
-        const fieldErrors = validateField(field, fieldValue, formData);
-        
-        if (fieldErrors) {
-          errors[field] = fieldErrors;
-          isValid = false;
-          
-          // Mark field as touched when validation fails
-          setTouchedFields(prev => ({
-            ...prev,
-            [field]: true
-          }));
-        }
-      }
-    });
+    // Mark all invalid fields as touched
+    const touchedFields = Object.keys(errors).reduce((acc, field) => {
+      acc[field] = true;
+      return acc;
+    }, {} as {[key: string]: boolean});
     
+    setTouchedFields(prev => ({ ...prev, ...touchedFields }));
     setValidationErrors(errors);
-    return isValid;
+    return false;
   };
 
   // Add function to handle field blur with immediate validation
@@ -350,18 +333,6 @@ const Register = () => {
         console.error('Response data:', error.response.data);
       }
     }
-  };
-
-  const getFieldError = (fieldName: string) => {
-    return validationErrors[fieldName] ? validationErrors[fieldName][0] : null;
-  };
-
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
   };
 
   // Update errorMessageStyle with better visibility

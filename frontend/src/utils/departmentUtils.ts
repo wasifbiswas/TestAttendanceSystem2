@@ -90,6 +90,31 @@ export const clearDepartmentCache = (): void => {
 };
 
 /**
+ * Get public departments for registration page (no auth required)
+ * @returns Promise<Department[]>
+ */
+export const getPublicDepartments = async (): Promise<Department[]> => {
+  try {
+    console.log('Fetching public departments from API');
+    // Use the public endpoint that doesn't require authentication
+    const response = await fetch('http://localhost:5003/api/public-departments');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Fetched ${data.departments.length} public departments:`, 
+      data.departments.map((d: Department) => ({ id: d._id, name: d.dept_name })));
+    
+    return data.departments;
+  } catch (error) {
+    console.error('Error fetching public departments:', error);
+    return [];
+  }
+};
+
+/**
  * Format departments for dropdown/select components
  * @returns Promise<Array<{value: string, label: string}>>
  */
@@ -102,6 +127,23 @@ export const getDepartmentsForSelect = async (): Promise<Array<{value: string, l
     }));
   } catch (error) {
     console.error('Error formatting departments for select:', error);
+    return [];
+  }
+};
+
+/**
+ * Format public departments for dropdown/select components (no auth required)
+ * @returns Promise<Array<{value: string, label: string}>>
+ */
+export const getPublicDepartmentsForSelect = async (): Promise<Array<{value: string, label: string}>> => {
+  try {
+    const departments = await getPublicDepartments();
+    return departments.map(dept => ({
+      value: dept._id,
+      label: dept.dept_name
+    }));
+  } catch (error) {
+    console.error('Error formatting public departments for select:', error);
     return [];
   }
 };

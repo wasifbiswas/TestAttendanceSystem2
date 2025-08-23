@@ -410,16 +410,18 @@ export const getDepartmentStats = asyncHandler(async (req, res) => {
 // @access  Public
 export const getPublicDepartments = asyncHandler(async (req, res) => {
   try {
-    console.log("[DEBUG] getPublicDepartments endpoint hit");
+    console.log("[DEBUG] getPublicDepartments endpoint hit - starting query");
 
-    // Get only active departments with basic info for registration
+    // Get active departments and departments without status field
     const departments = await Department.find({
-      status: "ACTIVE",
+      $or: [{ status: "ACTIVE" }, { status: { $exists: false } }],
     })
       .select("_id dept_name description")
       .sort({ dept_name: 1 });
 
-    console.log(`[DEBUG] Found ${departments.length} active departments`);
+    console.log(
+      `[DEBUG] Query completed. Found ${departments.length} departments`
+    );
 
     res.json({
       success: true,
